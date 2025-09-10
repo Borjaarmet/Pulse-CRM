@@ -1,0 +1,70 @@
+You are working in a Vite + React + TypeScript app for a CRM POC already wired to Supabase. We already have a robust lib/db.ts with ensureSupabase() (lazy init) and functions like getTasks/getDeals/getContacts, plus React Query in the UI. Implement two features at once, with minimal changes and production-ready code:
+
+GOAL
+1) Add a "New Deal" modal (DealModal) that inserts into Supabase table `deals` and invalidates ['deals'].
+2) Add a "New Contact" modal (ContactModal) that inserts into Supabase table `contacts` and invalidates ['contacts'].
+3) Wire both modals into the Shortcuts (ShortcutsCard) under the right column "Atajos": clicking "Nuevo Deal" or "Nuevo Contacto" opens the respective modal.
+
+IMPORTANT
+- Keep styling consistent with the project (Tailwind classes already used).
+- Do not add dependencies.
+- Use React Query’s useQueryClient().invalidateQueries() after insert.
+- Enumerations must match DB checks:
+  - deals.status: 'Open' | 'Won' | 'Lost' (default 'Open')
+  - risk: 'Alto' | 'Medio' | 'Bajo' (default 'Bajo')
+- Columns (as created in our SQL): 
+  deals: id(uuid pk), title(text), contact_id(uuid, nullable, references contacts.id), company(text), amount(numeric), stage(text), probability(int), target_close_date(date), next_step(text), risk(text default 'Bajo'), status(text default 'Open'), updated_at(timestamptz default now()).
+  contacts: id(uuid pk), name(text), email(text), company(text), source(text), score(int), priority(text), last_activity(timestamptz), owner(uuid), inserted_at(timestamptz default now()).
+- For the insert payload, only pass fields we collect in the forms. It’s fine to send null for optional fields.
+- Keep demo-mode fallback (when IS_SUPABASE_MODE === false) by pushing into the local demoData arrays.
+
+CODE CHANGES
+
+A) Update lib/db.ts
+- If not present, export IS_SUPABASE_MODE and ensureSupabase() are already implemented. Add two functions below getDeals():
+  1) addDeal(payload: Omit<Deal,'id'|'updated_at'>): Promise<Deal>
+     - Normalize defaults: status='Open', risk='Bajo', probability default 0, stage default 'Prospección'.
+     - In Supabase mode: await ensureSupabase(); insert and return the inserted row (select().single()).
+     - In demo mode: create object with id + updated_at (now) and unshift into demoData.deals.
+  2) addContact(payload: Omit<Contact,'id'|'inserted_at'>): Promise<Contact>
+     - In Supabase mode: await ensureSupabase(); insert and return the inserted row (select().single()).
+     - In demo mode: create object with id + inserted_at (now) and unshift into demoData.contacts.
+
+B) Create components/components/DealModal.tsx
+- Props: { open: boolean; onClose: () => void }
+- Local state fields:
+  title (required), company (optional), amount (number, optional), stage (select: Prospección/Negociación/Propuesta/Cierre), probability (0-100), targetClose (date), nextStep (text).
+- On submit: validate title, coerce amount to number (or null), clamp probability [0..100].
+- Call addDeal({ title, company: company || null, amount: amountOrNull, stage, probability, target_close_date: targetClose || null, next_step: nextStep || null, contact_id: null as any, status: 'Open' as any, risk: 'Bajo' as any } as any)
+- Invalidate ['deals'] and show a toast if the project already has a useToast hook. Otherwise, console.log is ok.
+- Basic modal styling: fixed inset-0 bg-black/50, card with rounded-2xl bg-card, border border-border, etc. Follow existing style from other cards.
+
+C) Create components/components/ContactModal.tsx
+- Props: { open: boolean; onClose: () => void }
+- Local state fields: name (required), email (optional), company (optional), source (optional).
+- On submit: validate name, insert via addContact({ name, email: email || null, company: company || null, source: source || null } as any)
+- Invalidate ['contacts'].
+- Same modal look & feel.
+
+D) Update components/ShortcutsCard.tsx
+- Import useState and the two modals:
+  import { useState } from 'react';
+  import DealModal from '@/components/DealModal';
+  import ContactModal from '@/components/ContactModal';
+- Create local state:
+  const [openDeal, setOpenDeal] = useState(false);
+  const [openContact, setOpenContact] = useState(false);
+- Ensure the "Nuevo Deal" shortcut triggers setOpenDeal(true) and "Nuevo Contacto" triggers setOpenContact(true).
+- Render the modals at the bottom of the component:
+  <DealModal open={openDeal} onClose={() => setOpenDeal(false)} />
+  <ContactModal open={openContact} onClose={() => setOpenContact(false)} />
+
+E) Type compatibility
+- If the shapes in src/lib/types.ts differ slightly, adapt the payload casting but keep the required columns above. Ensure amount is numeric (number) and probability is integer.
+
+F) Tests (run now)
+1) In the running app, click "Nuevo Deal", fill a title + amount, submit. Expect toast (if available) and see deals invalidated. If you have a "Deal más caliente" card, it should soon reflect the new deal depending on its calculation. Otherwise just ensure no errors and that the insert exists in Supabase.
+2) Click "Nuevo Contacto", add name/email and submit. Check the `contacts` table in Supabase.
+3) Hard reload: data persists (comes from Supabase, not demo).
+
+Don’t change unrelated files. Keep code clean and typed. 

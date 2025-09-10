@@ -1,0 +1,107 @@
+Quiero una web app estática (Vite + React + Tailwind) llamada “Pulse CRM — Dashboard POC” con estas características:
+
+Objetivo
+
+Un dashboard mínimo para un CRM (Pulse) que muestre:
+
+Mis próximas tareas (lista, quick add, marcar “Done”).
+
+Deal más caliente (heurística: probability * amount).
+
+Deals estancados: sin next_step o target_close_date vencida.
+
+Métricas rápidas: abiertos, ganados, perdidos, tareas activas.
+
+Modo datos:
+
+Modo Supabase (real): si existen VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY, usa @supabase/supabase-js para CRUD en tablas contacts, deals, tasks, timeline.
+
+Modo Demo (fallback): si faltan las env, usa datos mock y permite “Inyectar demo”.
+
+Tecnologías
+
+React + Vite.
+
+Tailwind CSS.
+
+@supabase/supabase-js (client).
+
+Sin backend propio (solo front estático).
+
+Estructura de archivos
+
+index.html, src/main.jsx, src/App.jsx.
+
+src/components/ con Card.jsx, Skeleton.jsx, TaskQuickAdd.jsx, TaskList.jsx, HotDeal.jsx, StalledDeals.jsx, Metric.jsx.
+
+src/lib/db.js: capa de datos con dos implementaciones:
+
+getTasks(), addTask(payload), markTaskDone(id), getDeals(), seedDemo().
+
+Detecta si hay env de Supabase; si no, trabaja en modo demo (estado local con mocks).
+
+Tailwind: tailwind.config.js, postcss.config.js, src/index.css con @tailwind base; @tailwind components; @tailwind utilities;.
+
+Interfaz
+
+Header con título y botones: “Inyectar demo” y “Refrescar”.
+
+Grid principal 2/3 + 1/3:
+
+Columna izquierda: Card “Mis próximas tareas” con Quick Add (texto + datetime-local) y lista; Card “Deals estancados”; Card “Actividad reciente” (placeholder).
+
+Columna derecha: Card “Deal más caliente”; Card “Atajos” (+ Tarea, + Deal, + Contacto sin funcionalidad aún); Card “Métricas rápidas (mes)”.
+
+Estilo: limpio, moderno, rounded-2xl, sombras suaves; dark/light mode soportado por Tailwind.
+
+Lógica
+
+HotDeal: calcula score como (probability || 50)/100 * (amount || 0) y elige el mayor.
+
+StalledDeals: filtra deals con !next_step o target_close_date < now().
+
+Quick Add tarea: inserta en DB (o demo) title, due_at, state='To Do', priority='Media'.
+
+Marcar done: state='Done'.
+
+Si hay Supabase: usa createClient(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY), tablas esperadas:
+
+tasks(id, title, due_at, state, priority, inserted_at)
+
+deals(id, title, company, amount, stage, probability, target_close_date, next_step, status, updated_at)
+
+Realtime: si hay Supabase, suscribirse a cambios en tasks y deals y refrescar.
+
+Semillas (Seed Demo)
+
+1 contacto demo, 2 deals (uno con target_close_date en pasado y next_step vacío), 2 tareas (hoy y mañana).
+
+Calidad
+
+Código tipado con JSDoc simple o TS opcional (vale JS).
+
+Componentes pequeños y reutilizables.
+
+Manejo de errores visible (banner rojo).
+
+Linter básico (eslint) opcional.
+
+Scripts y ejecución
+
+Scripts: dev, build, preview.
+
+Instrucciones post-generación: indicar dónde poner secrets (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) y cómo ejecutar.
+
+Criterios de aceptación
+
+La app compila y arranca en Replit con npm run dev.
+
+Sin env → aparece botón “Inyectar demo” y se ve contenido mock.
+
+Con env de Supabase → las operaciones de tareas/deals ocurren contra la base.
+
+“Deal más caliente” y “Estancados” muestran datos coherentes.
+
+Diseño responsive básico.
+
+Genera el proyecto con esta estructura y archivos listos.
