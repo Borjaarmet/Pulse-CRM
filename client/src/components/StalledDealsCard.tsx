@@ -1,6 +1,9 @@
+import React from "react";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
 import type { Deal } from "@/lib/types";
+import { getStalledDeals } from "@/lib/db";
+import { useQuery } from "@tanstack/react-query";
 
 interface StalledDealsCardProps {
   deals: Deal[];
@@ -8,15 +11,10 @@ interface StalledDealsCardProps {
 }
 
 export default function StalledDealsCard({ deals, isLoading }: StalledDealsCardProps) {
-  // Filter stalled deals (no next_step or target_close_date overdue)
-  const stalledDeals = deals.filter(deal => {
-    if (!deal.next_step) return true;
-    if (deal.target_close_date) {
-      const closeDate = new Date(deal.target_close_date);
-      const now = new Date();
-      return closeDate < now;
-    }
-    return false;
+  // Get stalled deals from database
+  const { data: stalledDeals = [], isLoading: stalledLoading } = useQuery({
+    queryKey: ["stalled-deals"],
+    queryFn: getStalledDeals,
   });
 
   const formatCurrency = (amount: number) => {
@@ -48,7 +46,7 @@ export default function StalledDealsCard({ deals, isLoading }: StalledDealsCardP
             <p className="text-sm text-muted-foreground">Requieren atención inmediata</p>
           </div>
         </div>
-        {isLoading ? (
+        {isLoading || stalledLoading ? (
           <Skeleton className="h-6 w-16" />
         ) : (
           <span className="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 rounded-md">
@@ -57,7 +55,7 @@ export default function StalledDealsCard({ deals, isLoading }: StalledDealsCardP
         )}
       </div>
       
-      {isLoading ? (
+      {isLoading || stalledLoading ? (
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
             <Skeleton key={i} className="h-24 w-full" />

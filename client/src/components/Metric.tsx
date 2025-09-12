@@ -1,8 +1,8 @@
 interface MetricProps {
   icon: string;
-  value: number;
+  value: number | string;
   label: string;
-  color: 'blue' | 'green' | 'red' | 'purple';
+  color: 'blue' | 'green' | 'red' | 'purple' | 'orange';
   change?: string;
 }
 
@@ -40,6 +40,14 @@ export default function Metric({ icon, value, label, color, change }: MetricProp
           value: 'text-purple-900 dark:text-purple-100',
           label: 'text-purple-700 dark:text-purple-300',
           change: 'text-purple-600 dark:text-purple-400'
+        };
+      case 'orange':
+        return {
+          bg: 'bg-orange-50 dark:bg-orange-900/10',
+          icon: 'text-orange-600 dark:text-orange-400',
+          value: 'text-orange-900 dark:text-orange-100',
+          label: 'text-orange-700 dark:text-orange-300',
+          change: 'text-orange-600 dark:text-orange-400'
         };
       default:
         return {
