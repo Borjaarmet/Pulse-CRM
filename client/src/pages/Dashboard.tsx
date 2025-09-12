@@ -7,7 +7,7 @@ import StalledDealsCard from "@/components/StalledDealsCard";
 import RecentActivityCard from "@/components/RecentActivityCard";
 import ShortcutsCard from "@/components/ShortcutsCard";
 import QuickMetricsCard from "@/components/QuickMetricsCard";
-import { getTasks, getDeals, seedDemo, subscribeToChanges } from "@/lib/db";
+import { getTasks, getDeals, getContacts, seedDemo, subscribeToChanges } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
@@ -25,6 +25,11 @@ export default function Dashboard() {
     queryFn: getDeals,
   });
 
+  const { data: contacts = [], isLoading: contactsLoading } = useQuery({
+    queryKey: ["contacts"],
+    queryFn: getContacts,
+  });
+
   useEffect(() => {
     // Check if we're in demo mode
     const hasSupabaseEnv = !!(
@@ -38,6 +43,7 @@ export default function Dashboard() {
       const unsubscribe = subscribeToChanges(() => {
         queryClient.invalidateQueries({ queryKey: ["tasks"] });
         queryClient.invalidateQueries({ queryKey: ["deals"] });
+        queryClient.invalidateQueries({ queryKey: ["contacts"] });
       });
 
       return unsubscribe;
@@ -49,6 +55,7 @@ export default function Dashboard() {
       await seedDemo();
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast({
         title: "Demo data injected",
         description: "Sample data has been added successfully",
@@ -65,6 +72,7 @@ export default function Dashboard() {
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     queryClient.invalidateQueries({ queryKey: ["deals"] });
+    queryClient.invalidateQueries({ queryKey: ["contacts"] });
     toast({
       title: "Data refreshed",
       description: "All data has been updated",

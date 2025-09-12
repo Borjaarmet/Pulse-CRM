@@ -10,12 +10,47 @@ interface QuickMetricsCardProps {
 }
 
 export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetricsCardProps) {
+  // Get current month dates
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+  // Helper function to check if date is in current month
+  const isThisMonth = (dateString: string) => {
+    const date = new Date(dateString);
+    return date >= startOfMonth && date <= endOfMonth;
+  };
+
   // Calculate metrics
   const metrics = {
-    open: deals.filter(deal => deal.status === 'open').length,
-    won: deals.filter(deal => deal.status === 'won').length,
-    lost: deals.filter(deal => deal.status === 'lost').length,
+    open: deals.filter(deal => deal.status === 'Open').length,
+    won: deals.filter(deal => deal.status === 'Won').length,
+    lost: deals.filter(deal => deal.status === 'Lost').length,
     activeTasks: tasks.filter(task => task.state !== 'Done').length
+  };
+
+  // Calculate monthly metrics
+  const monthlyMetrics = {
+    open: deals.filter(deal => 
+      deal.status === 'Open' && 
+      deal.updated_at && 
+      isThisMonth(deal.updated_at)
+    ).length,
+    won: deals.filter(deal => 
+      deal.status === 'Won' && 
+      deal.updated_at && 
+      isThisMonth(deal.updated_at)
+    ).length,
+    lost: deals.filter(deal => 
+      deal.status === 'Lost' && 
+      deal.updated_at && 
+      isThisMonth(deal.updated_at)
+    ).length,
+    activeTasks: tasks.filter(task => 
+      task.state !== 'Done' && 
+      task.inserted_at && 
+      isThisMonth(task.inserted_at)
+    ).length
   };
 
   return (
@@ -46,28 +81,28 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
         <div className="grid grid-cols-2 gap-4">
           <Metric
             icon="fas fa-folder-open"
-            value={metrics.open}
+            value={monthlyMetrics.open}
             label="Abiertos"
             color="blue"
             change="+12%"
           />
           <Metric
             icon="fas fa-trophy"
-            value={metrics.won}
+            value={monthlyMetrics.won}
             label="Ganados"
             color="green"
             change="+8%"
           />
           <Metric
             icon="fas fa-times-circle"
-            value={metrics.lost}
+            value={monthlyMetrics.lost}
             label="Perdidos"
             color="red"
             change="-2%"
           />
           <Metric
             icon="fas fa-tasks"
-            value={metrics.activeTasks}
+            value={monthlyMetrics.activeTasks}
             label="Tareas activas"
             color="purple"
             change="+5%"

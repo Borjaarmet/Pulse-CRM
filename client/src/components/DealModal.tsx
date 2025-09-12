@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addDeal } from "@/lib/db";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { addDeal, getContacts } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -8,13 +8,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Deal, Contact } from "@/lib/types";
 
 interface DealModalProps {
   open: boolean;
   onClose: () => void;
+  onCreated?: (deal: Deal) => void;
+  contacts?: Contact[];
 }
 
-export default function DealModal({ open, onClose }: DealModalProps) {
+export default function DealModal({ 
+  open, 
+  onClose, 
+  onCreated,
+  contacts: propContacts 
+}: DealModalProps) {
   const [title, setTitle] = useState("");
   const [company, setCompany] = useState("");
   const [amount, setAmount] = useState("");
@@ -22,35 +30,51 @@ export default function DealModal({ open, onClose }: DealModalProps) {
   const [probability, setProbability] = useState("0");
   const [targetClose, setTargetClose] = useState("");
   const [nextStep, setNextStep] = useState("");
+  const [contactId, setContactId] = useState("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Fetch contacts if not provided as props
+  const { data: contacts = [] } = useQuery({
+    queryKey: ["contacts"],
+    queryFn: getContacts,
+    enabled: !propContacts,
+  });
+
+  const availableContacts = propContacts || contacts;
+
   const addDealMutation = useMutation({
     mutationFn: addDeal,
-    onSuccess: () => {
+    onSuccess: (deal) => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
-      setTitle("");
-      setCompany("");
-      setAmount("");
-      setStage("Prospección");
-      setProbability("0");
-      setTargetClose("");
-      setNextStep("");
+      resetForm();
       onClose();
+      onCreated?.(deal);
       toast({
-        title: "Deal created",
-        description: "Your deal has been created successfully",
+        title: "Deal creado",
+        description: "El deal se ha creado exitosamente",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create deal",
+        description: "No se pudo crear el deal",
         variant: "destructive",
       });
     },
   });
+
+  const resetForm = () => {
+    setTitle("");
+    setCompany("");
+    setAmount("");
+    setStage("Prospección");
+    setProbability("0");
+    setTargetClose("");
+    setNextStep("");
+    setContactId("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +91,10 @@ export default function DealModal({ open, onClose }: DealModalProps) {
       probability: probabilityValue,
       target_close_date: targetClose || null,
       next_step: nextStep.trim() || null,
-      contact_id: null,
-      status: 'Open' as any,
-      risk: 'Bajo' as any,
-    } as any);
+      contact_id: contactId || null,
+      status: 'Open',
+      risk: 'Bajo',
+    });
   };
 
   return (
@@ -186,6 +210,25 @@ export default function DealModal({ open, onClose }: DealModalProps) {
               placeholder="Ej: Preparar propuesta técnica"
               data-testid="input-deal-next-step"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-card-foreground block mb-2">
+              Contacto
+            </label>
+            <select
+              value={contactId}
+              onChange={(e) => setContactId(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              data-testid="select-deal-contact"
+            >
+              <option value="">Seleccionar contacto (opcional)</option>
+              {availableContacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name} {contact.company ? `- ${contact.company}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
