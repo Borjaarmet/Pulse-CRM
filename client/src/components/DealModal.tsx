@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ContactSelector from "@/components/ContactSelector";
 import type { Deal, Contact } from "@/lib/types";
 
 interface DealModalProps {
@@ -30,7 +31,8 @@ export default function DealModal({
   const [probability, setProbability] = useState("0");
   const [targetClose, setTargetClose] = useState("");
   const [nextStep, setNextStep] = useState("");
-  const [contactId, setContactId] = useState("");
+  const [contactId, setContactId] = useState<string | undefined>("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -74,11 +76,38 @@ export default function DealModal({
     setTargetClose("");
     setNextStep("");
     setContactId("");
+    setErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!title.trim()) {
+      newErrors.title = "El título es requerido";
+    }
+
+    if (amount && (isNaN(Number(amount)) || Number(amount) < 0)) {
+      newErrors.amount = "El monto debe ser un número válido mayor o igual a 0";
+    }
+
+    if (probability && (isNaN(Number(probability)) || Number(probability) < 0 || Number(probability) > 100)) {
+      newErrors.probability = "La probabilidad debe ser un número entre 0 y 100";
+    }
+
+    if (targetClose && isNaN(Date.parse(targetClose))) {
+      newErrors.targetClose = "La fecha objetivo no es válida";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    
+    if (!validateForm()) {
+      return;
+    }
 
     const amountValue = amount ? Number(amount) : null;
     const probabilityValue = Math.max(0, Math.min(100, Number(probability) || 0));
@@ -113,11 +142,16 @@ export default function DealModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                errors.title ? "border-destructive" : "border-border"
+              }`}
               placeholder="Ej: Software CRM Enterprise"
               required
               data-testid="input-deal-title"
             />
+            {errors.title && (
+              <p className="text-xs text-destructive mt-1">{errors.title}</p>
+            )}
           </div>
 
           <div>
@@ -143,12 +177,17 @@ export default function DealModal({
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                  errors.amount ? "border-destructive" : "border-border"
+                }`}
                 placeholder="50000"
                 min="0"
                 step="0.01"
                 data-testid="input-deal-amount"
               />
+              {errors.amount && (
+                <p className="text-xs text-destructive mt-1">{errors.amount}</p>
+              )}
             </div>
 
             <div>
@@ -159,12 +198,17 @@ export default function DealModal({
                 type="number"
                 value={probability}
                 onChange={(e) => setProbability(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                  errors.probability ? "border-destructive" : "border-border"
+                }`}
                 placeholder="70"
                 min="0"
                 max="100"
                 data-testid="input-deal-probability"
               />
+              {errors.probability && (
+                <p className="text-xs text-destructive mt-1">{errors.probability}</p>
+              )}
             </div>
           </div>
 
@@ -193,9 +237,14 @@ export default function DealModal({
               type="date"
               value={targetClose}
               onChange={(e) => setTargetClose(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                errors.targetClose ? "border-destructive" : "border-border"
+              }`}
               data-testid="input-deal-target-close"
             />
+            {errors.targetClose && (
+              <p className="text-xs text-destructive mt-1">{errors.targetClose}</p>
+            )}
           </div>
 
           <div>
@@ -216,19 +265,12 @@ export default function DealModal({
             <label className="text-sm font-medium text-card-foreground block mb-2">
               Contacto
             </label>
-            <select
+            <ContactSelector
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              onValueChange={setContactId}
+              placeholder="Seleccionar contacto (opcional)"
               data-testid="select-deal-contact"
-            >
-              <option value="">Seleccionar contacto (opcional)</option>
-              {availableContacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} {contact.company ? `- ${contact.company}` : ''}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -242,7 +284,7 @@ export default function DealModal({
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || addDealMutation.isPending}
+              disabled={addDealMutation.isPending}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50"
               data-testid="button-deal-submit"
             >
