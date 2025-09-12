@@ -2,7 +2,6 @@ import Card from "@/components/Card";
 import Metric from "@/components/Metric";
 import Skeleton from "@/components/Skeleton";
 import type { Task, Deal } from "@/lib/types";
-import { isThisMonth } from "date-fns";
 
 interface QuickMetricsCardProps {
   tasks: Task[];
@@ -17,6 +16,12 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
   const currentYear = now.getFullYear();
 
   const isCurrentMonth = (dateString: string | null) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  };
+
+  const isThisMonth = (dateString: string | null) => {
     if (!dateString) return false;
     const date = new Date(dateString);
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
