@@ -10,6 +10,7 @@ interface QuickMetricsCardProps {
 }
 
 export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetricsCardProps) {
+<<<<<<< Current (Your changes)
   // Get current month dates
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -22,6 +23,19 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
   };
 
   // Calculate metrics
+=======
+  // Calculate metrics for current month
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const isCurrentMonth = (dateString: string | null) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  };
+
+>>>>>>> Incoming (Background Agent changes)
   const metrics = {
     open: deals.filter(deal => deal.status === 'Open').length,
     won: deals.filter(deal => deal.status === 'Won').length,

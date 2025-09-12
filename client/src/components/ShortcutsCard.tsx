@@ -1,11 +1,19 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Card from "./Card";
-import DealModal from '@/components/DealModal';
-import ContactModal from '@/components/ContactModal';
+import NewDealModal from '@/components/ui/NewDealModal';
+import NewContactModal from '@/components/ui/NewContactModal';
+import { getContacts } from '@/lib/db';
+import type { Contact } from '@/lib/types';
 
 export default function ShortcutsCard() {
   const [openDeal, setOpenDeal] = useState(false);
   const [openContact, setOpenContact] = useState(false);
+
+  const { data: contacts = [] } = useQuery({
+    queryKey: ['contacts'],
+    queryFn: getContacts,
+  });
   const shortcuts = [
     {
       id: 1,
@@ -82,8 +90,15 @@ export default function ShortcutsCard() {
         ))}
       </div>
       
-      <DealModal open={openDeal} onClose={() => setOpenDeal(false)} />
-      <ContactModal open={openContact} onClose={() => setOpenContact(false)} />
+      <NewDealModal 
+        open={openDeal} 
+        onClose={() => setOpenDeal(false)} 
+        contacts={contacts}
+      />
+      <NewContactModal 
+        open={openContact} 
+        onClose={() => setOpenContact(false)} 
+      />
     </Card>
   );
 }

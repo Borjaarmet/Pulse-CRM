@@ -133,15 +133,16 @@ export async function getDeals(): Promise<Deal[]> {
 }
 
 export async function addDeal(
-  payload: Omit<Deal, "id" | "updated_at">,
+  payload: Omit<Deal, "id" | "updated_at"> & { contact_id?: string },
 ): Promise<Deal> {
   // Normalize defaults
   const normalizedPayload = {
     ...payload,
     status: payload.status || "Open",
-    risk: payload.risk || "Bajo",
+    risk: (payload as any).risk || "Bajo",
     probability: payload.probability ?? 0,
     stage: payload.stage || "Prospección",
+    updated_at: new Date().toISOString(),
   };
 
   if (IS_SUPABASE_MODE) {
@@ -158,50 +159,9 @@ export async function addDeal(
   const newDeal = {
     id: generateId(),
     ...normalizedPayload,
-    updated_at: new Date().toISOString(),
   };
   demoData.deals.unshift(newDeal);
   return newDeal;
-}
-
-export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal> {
-  const updateData = {
-    ...patch,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (IS_SUPABASE_MODE) {
-    await ensureSupabase();
-    const { data, error } = await supabase
-      .from("deals")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
-  const idx = demoData.deals.findIndex((d) => d.id === id);
-  if (idx === -1) throw new Error("Deal not found");
-  demoData.deals[idx] = { ...demoData.deals[idx], ...updateData };
-  return demoData.deals[idx];
-}
-
-export async function deleteDeal(id: string): Promise<void> {
-  if (IS_SUPABASE_MODE) {
-    await ensureSupabase();
-    const { error } = await supabase
-      .from("deals")
-      .delete()
-      .eq("id", id);
-    if (error) throw error;
-    return;
-  }
-
-  const idx = demoData.deals.findIndex((d) => d.id === id);
-  if (idx === -1) throw new Error("Deal not found");
-  demoData.deals.splice(idx, 1);
 }
 
 /* =================
@@ -243,6 +203,49 @@ export async function addContact(
   return newContact;
 }
 
+/* ==============
+   UPDATE/DELETE FUNCTIONS
+   ============== */
+export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal> {
+  const normalizedPatch = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("deals")
+      .update(normalizedPatch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const idx = demoData.deals.findIndex((d) => d.id === id);
+  if (idx === -1) throw new Error("Deal not found");
+  demoData.deals[idx] = { ...demoData.deals[idx], ...normalizedPatch };
+  return demoData.deals[idx];
+}
+
+export async function deleteDeal(id: string): Promise<void> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { error } = await supabase
+      .from("deals")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    return;
+  }
+
+  const idx = demoData.deals.findIndex((d) => d.id === id);
+  if (idx === -1) throw new Error("Deal not found");
+  demoData.deals.splice(idx, 1);
+}
+
 export async function updateContact(id: string, patch: Partial<Contact>): Promise<Contact> {
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
@@ -278,9 +281,9 @@ export async function deleteContact(id: string): Promise<void> {
   demoData.contacts.splice(idx, 1);
 }
 
-/* ====================
+/* ==============
    HELPER FUNCTIONS
-   ==================== */
+   ============== */
 export function scoreDeal(d: Deal): number {
   return (d.probability ?? 0) * (d.amount ?? 0);
 }

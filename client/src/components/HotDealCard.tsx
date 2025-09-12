@@ -10,11 +10,19 @@ interface HotDealCardProps {
 
 export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
   // Calculate hot deal using scoreDeal helper
+<<<<<<< Current (Your changes)
   const hotDeal = deals.reduce((hottest, deal) => {
     const score = scoreDeal(deal);
     const hottestScore = hottest ? scoreDeal(hottest) : 0;
     return score > hottestScore ? deal : hottest;
   }, deals[0]);
+=======
+  const hotDeal = deals.length > 0 ? deals.reduce((hottest, deal) => {
+    const currentScore = scoreDeal(deal);
+    const hottestScore = scoreDeal(hottest);
+    return currentScore > hottestScore ? deal : hottest;
+  }, deals[0]) : null;
+>>>>>>> Incoming (Background Agent changes)
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
