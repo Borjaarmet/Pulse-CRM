@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import TasksCard from "@/components/TasksCard";
@@ -7,8 +7,13 @@ import StalledDealsCard from "@/components/StalledDealsCard";
 import RecentActivityCard from "@/components/RecentActivityCard";
 import ShortcutsCard from "@/components/ShortcutsCard";
 import QuickMetricsCard from "@/components/QuickMetricsCard";
+import Skeleton from "@/components/Skeleton";
 import { getTasks, getDeals, getContacts, seedDemo, subscribeToChanges } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+
+// Lazy load the list components
+const DealsList = lazy(() => import("@/components/DealsList"));
+const ContactsList = lazy(() => import("@/components/ContactsList"));
 
 export default function Dashboard() {
   const [isDemo, setIsDemo] = useState(false);
@@ -105,6 +110,15 @@ export default function Dashboard() {
               deals={deals}
               isLoading={tasksLoading || dealsLoading}
             />
+            
+            {/* Lazy loaded lists */}
+            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+              <DealsList />
+            </Suspense>
+            
+            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+              <ContactsList />
+            </Suspense>
           </div>
         </div>
       </main>
