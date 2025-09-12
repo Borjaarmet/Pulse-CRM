@@ -8,43 +8,52 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { Contact } from "@/lib/types";
 
 interface ContactModalProps {
   open: boolean;
   onClose: () => void;
+  onCreated?: (contact: Contact) => void;
 }
 
-export default function ContactModal({ open, onClose }: ContactModalProps) {
+export default function ContactModal({ 
+  open, 
+  onClose, 
+  onCreated 
+}: ContactModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
-  const [source, setSource] = useState("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const addContactMutation = useMutation({
     mutationFn: addContact,
-    onSuccess: () => {
+    onSuccess: (contact) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      setName("");
-      setEmail("");
-      setCompany("");
-      setSource("");
+      resetForm();
       onClose();
+      onCreated?.(contact);
       toast({
-        title: "Contact created",
-        description: "Your contact has been created successfully",
+        title: "Contacto creado",
+        description: "El contacto se ha creado exitosamente",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create contact",
+        description: "No se pudo crear el contacto",
         variant: "destructive",
       });
     },
   });
+
+  const resetForm = () => {
+    setName("");
+    setEmail("");
+    setCompany("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,8 +63,7 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
       name: name.trim(),
       email: email.trim() || null,
       company: company.trim() || null,
-      source: source.trim() || null,
-    } as any);
+    });
   };
 
   return (
@@ -109,19 +117,6 @@ export default function ContactModal({ open, onClose }: ContactModalProps) {
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-card-foreground block mb-2">
-              Fuente
-            </label>
-            <input
-              type="text"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              placeholder="Ej: Referencia, LinkedIn, Web"
-              data-testid="input-contact-source"
-            />
-          </div>
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
