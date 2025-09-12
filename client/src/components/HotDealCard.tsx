@@ -1,5 +1,6 @@
 import Card from "./Card";
 import Skeleton from "./Skeleton";
+import { scoreDeal } from "@/lib/db";
 import type { Deal } from "@/lib/types";
 
 interface HotDealCardProps {
@@ -8,12 +9,12 @@ interface HotDealCardProps {
 }
 
 export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
-  // Calculate hot deal (probability * amount)
-  const hotDeal = deals.reduce((hottest, deal) => {
-    const score = ((deal.probability || 50) / 100) * (deal.amount || 0);
-    const hottestScore = ((hottest?.probability || 50) / 100) * (hottest?.amount || 0);
-    return score > hottestScore ? deal : hottest;
-  }, deals[0]);
+  // Calculate hot deal using scoreDeal helper
+  const hotDeal = deals.length > 0 ? deals.reduce((hottest, deal) => {
+    const currentScore = scoreDeal(deal);
+    const hottestScore = scoreDeal(hottest);
+    return currentScore > hottestScore ? deal : hottest;
+  }, deals[0]) : null;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -85,7 +86,7 @@ export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
             <div className="flex items-center justify-between">
               <span className="text-green-100 text-sm">Score calculado</span>
               <span className="text-white font-bold">
-                {formatCurrency(((hotDeal.probability || 50) / 100) * (hotDeal.amount || 0))}
+                {formatCurrency(scoreDeal(hotDeal))}
               </span>
             </div>
           </div>
