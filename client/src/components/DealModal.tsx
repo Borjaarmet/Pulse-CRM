@@ -250,19 +250,13 @@ export default function DealModal({
             <label className="text-sm font-medium text-card-foreground block mb-2">
               Contacto
             </label>
-            <select
+            <ContactSelector
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              onValueChange={setContactId}
+              placeholder="Seleccionar contacto (opcional)"
+              contacts={availableContacts}
               data-testid="select-deal-contact"
-            >
-              <option value="">Seleccionar contacto (opcional)</option>
-              {availableContacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} {contact.company ? `- ${contact.company}` : ''}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

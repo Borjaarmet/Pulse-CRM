@@ -275,6 +275,7 @@ export default function DealsList({ className }: DealsListProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(deal)}
+                          data-testid={`button-edit-deal-${deal.id}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -282,6 +283,7 @@ export default function DealsList({ className }: DealsListProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(deal)}
+                          data-testid={`button-delete-deal-${deal.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -437,12 +439,14 @@ export default function DealsList({ className }: DealsListProps) {
                   type="button"
                   variant="outline"
                   onClick={() => setIsEditModalOpen(false)}
+                  data-testid="button-edit-deal-cancel"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={updateDealMutation.isPending}
+                  data-testid="button-edit-deal-save"
                 >
                   {updateDealMutation.isPending ? "Guardando..." : "Guardar"}
                 </Button>
@@ -470,6 +474,7 @@ export default function DealsList({ className }: DealsListProps) {
                 <Button
                   variant="outline"
                   onClick={() => setIsDeleteModalOpen(false)}
+                  data-testid="button-delete-deal-cancel"
                 >
                   Cancelar
                 </Button>
@@ -477,6 +482,7 @@ export default function DealsList({ className }: DealsListProps) {
                   variant="destructive"
                   onClick={handleDeleteConfirm}
                   disabled={deleteDealMutation.isPending}
+                  data-testid="button-delete-deal-confirm"
                 >
                   {deleteDealMutation.isPending ? "Eliminando..." : "Eliminar"}
                 </Button>
