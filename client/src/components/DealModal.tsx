@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ContactSelector from "@/components/ContactSelector";
 import type { Deal, Contact } from "@/lib/types";
 
 interface DealModalProps {
@@ -30,7 +31,8 @@ export default function DealModal({
   const [probability, setProbability] = useState("0");
   const [targetClose, setTargetClose] = useState("");
   const [nextStep, setNextStep] = useState("");
-  const [contactId, setContactId] = useState("");
+  const [contactId, setContactId] = useState<string | undefined>("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -74,11 +76,38 @@ export default function DealModal({
     setTargetClose("");
     setNextStep("");
     setContactId("");
+    setErrors({});
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!title.trim()) {
+      newErrors.title = "El título es requerido";
+    }
+
+    if (amount && (isNaN(Number(amount)) || Number(amount) < 0)) {
+      newErrors.amount = "El monto debe ser un número válido mayor o igual a 0";
+    }
+
+    if (probability && (isNaN(Number(probability)) || Number(probability) < 0 || Number(probability) > 100)) {
+      newErrors.probability = "La probabilidad debe ser un número entre 0 y 100";
+    }
+
+    if (targetClose && isNaN(Date.parse(targetClose))) {
+      newErrors.targetClose = "La fecha objetivo no es válida";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    
+    if (!validateForm()) {
+      return;
+    }
 
     const amountValue = amount ? Number(amount) : null;
     const probabilityValue = Math.max(0, Math.min(100, Number(probability) || 0));
@@ -113,11 +142,16 @@ export default function DealModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent ${
+                errors.title ? "border-destructive" : "border-border"
+              }`}
               placeholder="Ej: Software CRM Enterprise"
               required
               data-testid="input-deal-title"
             />
+            {errors.title && (
+              <p className="text-xs text-destructive mt-1">{errors.title}</p>
+            )}
           </div>
 
           <div>
