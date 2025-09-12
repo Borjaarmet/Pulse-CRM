@@ -193,6 +193,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(contact)}
+                          data-testid={`button-edit-contact-${contact.id}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -200,6 +201,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDelete(contact)}
+                          data-testid={`button-delete-contact-${contact.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -292,12 +294,14 @@ export default function ContactsList({ className }: ContactsListProps) {
                   type="button"
                   variant="outline"
                   onClick={() => setIsEditModalOpen(false)}
+                  data-testid="button-edit-contact-cancel"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={updateContactMutation.isPending}
+                  data-testid="button-edit-contact-save"
                 >
                   {updateContactMutation.isPending ? "Guardando..." : "Guardar"}
                 </Button>
@@ -325,6 +329,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                 <Button
                   variant="outline"
                   onClick={() => setIsDeleteModalOpen(false)}
+                  data-testid="button-delete-contact-cancel"
                 >
                   Cancelar
                 </Button>
@@ -332,6 +337,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                   variant="destructive"
                   onClick={handleDeleteConfirm}
                   disabled={deleteContactMutation.isPending}
+                  data-testid="button-delete-contact-confirm"
                 >
                   {deleteContactMutation.isPending ? "Eliminando..." : "Eliminar"}
                 </Button>

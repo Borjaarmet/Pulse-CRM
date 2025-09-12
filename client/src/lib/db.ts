@@ -116,6 +116,41 @@ export async function markTaskDone(
   return demoData.tasks[idx];
 }
 
+export async function updateTask(id: string, patch: Partial<Task>): Promise<Task> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const idx = demoData.tasks.findIndex((t) => t.id === id);
+  if (idx === -1) throw new Error("Task not found");
+  demoData.tasks[idx] = { ...demoData.tasks[idx], ...patch };
+  return demoData.tasks[idx];
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    return;
+  }
+
+  const idx = demoData.tasks.findIndex((t) => t.id === id);
+  if (idx === -1) throw new Error("Task not found");
+  demoData.tasks.splice(idx, 1);
+}
+
 /* ==============
    QUERIES: DEALS
    ============== */

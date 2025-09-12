@@ -27,6 +27,7 @@ interface ContactSelectorProps {
   placeholder?: string;
   className?: string;
   error?: string;
+  contacts?: Contact[];
 }
 
 interface ContactFormData {
@@ -41,6 +42,7 @@ export default function ContactSelector({
   placeholder = "Seleccionar contacto...",
   className,
   error,
+  contacts: propContacts,
 }: ContactSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,11 +59,13 @@ export default function ContactSelector({
   const { toast } = useToast();
 
   // Fetch contacts with search
-  const { data: contacts = [], isLoading } = useQuery({
+  const { data: fetchedContacts = [], isLoading } = useQuery({
     queryKey: ["contacts", debouncedSearchQuery],
     queryFn: () => getContacts(),
-    enabled: true,
+    enabled: !propContacts,
   });
+
+  const contacts = propContacts || fetchedContacts;
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {

@@ -60,19 +60,21 @@ export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps)
 
             {/* Solo permitir sembrar datos en modo Demo */}
             {isDemo && (
-              <button
-                onClick={onInjectDemo}
-                className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition"
-                aria-label="Inyectar datos de demostración"
-              >
-                Inyectar demo
-              </button>
+            <button
+              onClick={onInjectDemo}
+              className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition"
+              aria-label="Inyectar datos de demostración"
+              data-testid="button-inject-demo"
+            >
+              Inyectar demo
+            </button>
             )}
 
             <button
               onClick={onRefresh}
               className="px-3 py-1.5 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-lg transition"
               aria-label="Refrescar datos"
+              data-testid="button-refresh"
             >
               Refrescar
             </button>
@@ -81,6 +83,7 @@ export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps)
               onClick={toggleTheme}
               className="p-2 text-muted-foreground hover:text-foreground rounded-lg transition"
               aria-label={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`}
+              data-testid="button-toggle-theme"
             >
               {theme === 'light' ? '🌙' : '☀️'}
             </button>

@@ -9,12 +9,13 @@ interface HotDealCardProps {
 }
 
 export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
-  // Calculate hot deal using scoreDeal helper
-  const hotDeal = deals.length > 0 ? deals.reduce((hottest, deal) => {
+  // Filter only Open deals and calculate hot deal using scoreDeal helper
+  const openDeals = deals.filter(deal => deal.status === 'Open');
+  const hotDeal = openDeals.length > 0 ? openDeals.reduce((hottest, deal) => {
     const currentScore = scoreDeal(deal);
     const hottestScore = scoreDeal(hottest);
     return currentScore > hottestScore ? deal : hottest;
-  }, deals[0]) : null;
+  }, openDeals[0]) : null;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {

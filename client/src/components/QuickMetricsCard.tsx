@@ -29,7 +29,7 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
     activeTasks: tasks.filter(task => task.state !== 'Done').length
   };
 
-  // Calculate monthly metrics
+  // Calculate monthly metrics with null safety
   const monthlyMetrics = {
     open: deals.filter(deal => 
       deal.status === 'Open' && 
