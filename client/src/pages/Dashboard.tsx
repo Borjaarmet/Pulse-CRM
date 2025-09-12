@@ -38,6 +38,7 @@ export default function Dashboard() {
       const unsubscribe = subscribeToChanges(() => {
         queryClient.invalidateQueries({ queryKey: ["tasks"] });
         queryClient.invalidateQueries({ queryKey: ["deals"] });
+        queryClient.invalidateQueries({ queryKey: ["contacts"] });
       });
 
       return unsubscribe;
@@ -65,6 +66,7 @@ export default function Dashboard() {
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
     queryClient.invalidateQueries({ queryKey: ["deals"] });
+    queryClient.invalidateQueries({ queryKey: ["contacts"] });
     toast({
       title: "Data refreshed",
       description: "All data has been updated",

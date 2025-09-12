@@ -16,7 +16,7 @@ export interface Deal {
   probability: number | null;
   target_close_date: string | null;
   next_step: string | null;
-  status: 'open' | 'won' | 'lost';
+  status: 'Open' | 'Won' | 'Lost';
   updated_at: string;
 }
 
