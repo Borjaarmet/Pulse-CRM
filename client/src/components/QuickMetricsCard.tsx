@@ -1,8 +1,12 @@
+import React from "react";
 import Card from "@/components/Card";
 import Metric from "@/components/Metric";
 import Skeleton from "@/components/Skeleton";
 import type { Task, Deal } from "@/lib/types";
-import { isThisMonth } from "date-fns";
+import { getDealsMetrics, type DealsMetrics } from "@/lib/db";
+import { useQuery } from "@tanstack/react-query";
+import { isThisMonth, formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
 
 interface QuickMetricsCardProps {
   tasks: Task[];
@@ -11,7 +15,13 @@ interface QuickMetricsCardProps {
 }
 
 export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetricsCardProps) {
-  // Calculate metrics for current month
+  // Get real metrics from database
+  const { data: metrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ["deals-metrics"],
+    queryFn: getDealsMetrics,
+  });
+
+  // Calculate monthly metrics for tasks
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -22,35 +32,27 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   };
 
-  const metrics = {
-    open: deals.filter(deal => deal.status === 'Open').length,
-    won: deals.filter(deal => deal.status === 'Won').length,
-    lost: deals.filter(deal => deal.status === 'Lost').length,
-    activeTasks: tasks.filter(task => task.state !== 'Done').length
+  const activeTasks = tasks.filter(task => task.state !== 'Done').length;
+  const monthlyActiveTasks = tasks.filter(task => 
+    task.state !== 'Done' && 
+    task.inserted_at && 
+    isThisMonth(task.inserted_at)
+  ).length;
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+    }).format(amount);
   };
 
-  // Calculate monthly metrics
-  const monthlyMetrics = {
-    open: deals.filter(deal => 
-      deal.status === 'Open' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    won: deals.filter(deal => 
-      deal.status === 'Won' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    lost: deals.filter(deal => 
-      deal.status === 'Lost' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    activeTasks: tasks.filter(task => 
-      task.state !== 'Done' && 
-      task.inserted_at && 
-      isThisMonth(task.inserted_at)
-    ).length
+  const formatLastActivity = (dateString: string | null) => {
+    if (!dateString) return "Sin actividad";
+    return formatDistanceToNow(new Date(dateString), { 
+      addSuffix: true, 
+      locale: es 
+    });
   };
 
   return (
@@ -67,7 +69,7 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
         </div>
       </div>
       
-      {isLoading ? (
+      {isLoading || metricsLoading ? (
         <div className="grid grid-cols-2 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="p-4 bg-muted/20 rounded-xl">
@@ -77,36 +79,41 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
             </div>
           ))}
         </div>
-      ) : (
+      ) : metrics ? (
         <div className="grid grid-cols-2 gap-4">
           <Metric
             icon="fas fa-folder-open"
-            value={monthlyMetrics.open}
-            label="Abiertos"
+            value={metrics.openDeals}
+            label="Deals abiertos"
             color="blue"
-            change="+12%"
+            change={`${metrics.stalledDeals} estancados`}
           />
           <Metric
             icon="fas fa-trophy"
-            value={monthlyMetrics.won}
-            label="Ganados"
+            value={metrics.wonDeals}
+            label="Deals ganados"
             color="green"
-            change="+8%"
+            change={`${metrics.conversionRatio}% conversión`}
           />
           <Metric
-            icon="fas fa-times-circle"
-            value={monthlyMetrics.lost}
-            label="Perdidos"
-            color="red"
-            change="-2%"
-          />
-          <Metric
-            icon="fas fa-tasks"
-            value={monthlyMetrics.activeTasks}
-            label="Tareas activas"
+            icon="fas fa-chart-line"
+            value={formatCurrency(metrics.pipelineValue)}
+            label="Valor pipeline"
             color="purple"
-            change="+5%"
+            change="Probabilidad ponderada"
           />
+          <Metric
+            icon="fas fa-clock"
+            value={formatLastActivity(metrics.lastActivity)}
+            label="Última actividad"
+            color="orange"
+            change="Deal más reciente"
+          />
+        </div>
+      ) : (
+        <div className="text-center py-8 text-muted-foreground">
+          <i className="fas fa-exclamation-circle text-2xl mb-2"></i>
+          <p>Error al cargar métricas</p>
         </div>
       )}
     </Card>

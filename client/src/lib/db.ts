@@ -289,6 +289,117 @@ export function scoreDeal(d: Deal): number {
 }
 
 /* ====================
+   DEALS METRICS HELPERS
+   ==================== */
+export interface DealsMetrics {
+  openDeals: number;
+  wonDeals: number;
+  conversionRatio: number;
+  pipelineValue: number;
+  lastActivity: string | null;
+  stalledDeals: number;
+}
+
+export async function getDealsMetrics(): Promise<DealsMetrics> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    
+    // Get all deals for metrics calculation
+    const { data: deals, error } = await supabase
+      .from("deals")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    
+    if (error) throw error;
+    
+    return calculateDealsMetrics(deals ?? []);
+  }
+  
+  return calculateDealsMetrics(demoData.deals);
+}
+
+function calculateDealsMetrics(deals: Deal[]): DealsMetrics {
+  const now = new Date();
+  
+  // Basic counts
+  const openDeals = deals.filter(deal => deal.status === 'Open').length;
+  const wonDeals = deals.filter(deal => deal.status === 'Won').length;
+  const lostDeals = deals.filter(deal => deal.status === 'Lost').length;
+  
+  // Conversion ratio
+  const totalClosedDeals = wonDeals + lostDeals;
+  const conversionRatio = totalClosedDeals > 0 ? (wonDeals / totalClosedDeals) * 100 : 0;
+  
+  // Pipeline value (sum of open deals with probability)
+  const pipelineValue = deals
+    .filter(deal => deal.status === 'Open')
+    .reduce((sum, deal) => {
+      const amount = deal.amount || 0;
+      const probability = deal.probability || 0;
+      return sum + (amount * probability / 100);
+    }, 0);
+  
+  // Last activity (most recent updated_at)
+  const lastActivity = deals.length > 0 
+    ? deals.reduce((latest, deal) => {
+        const dealDate = new Date(deal.updated_at);
+        const latestDate = new Date(latest);
+        return dealDate > latestDate ? deal.updated_at : latest;
+      }, deals[0].updated_at)
+    : null;
+  
+  // Stalled deals (Open deals with past target_close_date or next_step = null)
+  const stalledDeals = deals.filter(deal => {
+    if (deal.status !== 'Open') return false;
+    if (!deal.next_step) return true;
+    if (deal.target_close_date) {
+      const closeDate = new Date(deal.target_close_date);
+      return closeDate < now;
+    }
+    return false;
+  }).length;
+  
+  return {
+    openDeals,
+    wonDeals,
+    conversionRatio: Math.round(conversionRatio * 100) / 100, // Round to 2 decimal places
+    pipelineValue: Math.round(pipelineValue),
+    lastActivity,
+    stalledDeals
+  };
+}
+
+export async function getStalledDeals(): Promise<Deal[]> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    
+    const now = new Date().toISOString();
+    
+    const { data, error } = await supabase
+      .from("deals")
+      .select("*")
+      .eq("status", "Open")
+      .or(`next_step.is.null,target_close_date.lt.${now}`)
+      .order("updated_at", { ascending: false });
+    
+    if (error) throw error;
+    return data ?? [];
+  }
+  
+  // For demo mode, filter locally
+  const now = new Date();
+  return demoData.deals.filter(deal => {
+    if (deal.status !== 'Open') return false;
+    if (!deal.next_step) return true;
+    if (deal.target_close_date) {
+      const closeDate = new Date(deal.target_close_date);
+      return closeDate < now;
+    }
+    return false;
+  });
+}
+
+/* ====================
    SUBSCRIPCIONES RT
    ==================== */
 export function subscribeToChanges(callback: () => void): () => void {
