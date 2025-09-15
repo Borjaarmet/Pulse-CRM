@@ -87,8 +87,8 @@ export default function ContactsList({ className }: ContactsListProps) {
   const filteredContacts = useMemo(() => {
     return contacts.filter((contact) => {
       const matchesSearch = 
-        contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (contact.name && contact.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (contact.email && contact.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
       
       return matchesSearch;
