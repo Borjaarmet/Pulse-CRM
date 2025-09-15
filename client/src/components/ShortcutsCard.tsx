@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Card from "./Card";
-import NewDealModal from '@/components/ui/NewDealModal';
+import DealModal from '@/components/DealModal';
 import NewContactModal from '@/components/ui/NewContactModal';
 import { getContacts } from '@/lib/db';
 import type { Contact } from '@/lib/types';
@@ -90,7 +90,7 @@ export default function ShortcutsCard() {
         ))}
       </div>
       
-      <NewDealModal 
+      <DealModal 
         open={openDeal} 
         onClose={() => setOpenDeal(false)} 
         contacts={contacts}
