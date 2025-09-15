@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getContacts, updateContact, deleteContact } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,11 @@ import {
 import { Edit, Trash2, Search } from "lucide-react";
 import type { Contact } from "@/lib/types";
 
+// Helper function for null-safe string conversion to lowercase
+const toSafeLower = (value: string | null | undefined): string => {
+  return value ? value.toLowerCase() : "";
+};
+
 interface ContactsListProps {
   className?: string;
 }
@@ -42,6 +47,11 @@ export default function ContactsList({ className }: ContactsListProps) {
     queryKey: ["contacts"],
     queryFn: getContacts,
   });
+
+  // Reset pagination when searchTerm changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const updateContactMutation = useMutation({
     mutationFn: ({ id, ...patch }: { id: string } & Partial<Contact>) =>
@@ -85,11 +95,13 @@ export default function ContactsList({ className }: ContactsListProps) {
   });
 
   const filteredContacts = useMemo(() => {
+    const searchTermLower = toSafeLower(searchTerm);
+    
     return contacts.filter((contact) => {
       const matchesSearch = 
-        contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
+        toSafeLower(contact.name).includes(searchTermLower) ||
+        toSafeLower(contact.email).includes(searchTermLower) ||
+        toSafeLower(contact.company).includes(searchTermLower);
       
       return matchesSearch;
     });
@@ -184,7 +196,7 @@ export default function ContactsList({ className }: ContactsListProps) {
               <TableBody>
                 {paginatedContacts.map((contact) => (
                   <TableRow key={contact.id}>
-                    <TableCell className="font-medium">{contact.name}</TableCell>
+                    <TableCell className="font-medium">{contact.name || "-"}</TableCell>
                     <TableCell>{contact.email || "-"}</TableCell>
                     <TableCell>{contact.company || "-"}</TableCell>
                     <TableCell>
