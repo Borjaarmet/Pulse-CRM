@@ -1,57 +1,42 @@
 import Card from "@/components/Card";
 import Metric from "@/components/Metric";
 import Skeleton from "@/components/Skeleton";
-import type { Task, Deal } from "@/lib/types";
-import { isThisMonth } from "date-fns";
+import { getQuickMetrics } from "@/lib/db";
+import { useEffect, useState } from "react";
 
 interface QuickMetricsCardProps {
-  tasks: Task[];
-  deals: Deal[];
-  isLoading: boolean;
+  isLoading?: boolean;
 }
 
-export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetricsCardProps) {
-  // Calculate metrics for current month
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+interface QuickMetrics {
+  open: number;
+  won: number;
+  lost: number;
+  sumOpen: number;
+}
 
-  const isCurrentMonth = (dateString: string | null) => {
-    if (!dateString) return false;
-    const date = new Date(dateString);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-  };
+export default function QuickMetricsCard({ isLoading: externalLoading }: QuickMetricsCardProps) {
+  const [metrics, setMetrics] = useState<QuickMetrics>({ open: 0, won: 0, lost: 0, sumOpen: 0 });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const metrics = {
-    open: deals.filter(deal => deal.status === 'Open').length,
-    won: deals.filter(deal => deal.status === 'Won').length,
-    lost: deals.filter(deal => deal.status === 'Lost').length,
-    activeTasks: tasks.filter(task => task.state !== 'Done').length
-  };
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getQuickMetrics();
+        setMetrics(data);
+      } catch (error) {
+        console.error("Error fetching quick metrics:", error);
+        setMetrics({ open: 0, won: 0, lost: 0, sumOpen: 0 });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // Calculate monthly metrics
-  const monthlyMetrics = {
-    open: deals.filter(deal => 
-      deal.status === 'Open' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    won: deals.filter(deal => 
-      deal.status === 'Won' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    lost: deals.filter(deal => 
-      deal.status === 'Lost' && 
-      deal.updated_at && 
-      isThisMonth(deal.updated_at)
-    ).length,
-    activeTasks: tasks.filter(task => 
-      task.state !== 'Done' && 
-      task.inserted_at && 
-      isThisMonth(task.inserted_at)
-    ).length
-  };
+    fetchMetrics();
+  }, []);
+
+  const loading = externalLoading || isLoading;
 
   return (
     <Card>
@@ -67,7 +52,7 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
         </div>
       </div>
       
-      {isLoading ? (
+      {loading ? (
         <div className="grid grid-cols-2 gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="p-4 bg-muted/20 rounded-xl">
@@ -81,29 +66,33 @@ export default function QuickMetricsCard({ tasks, deals, isLoading }: QuickMetri
         <div className="grid grid-cols-2 gap-4">
           <Metric
             icon="fas fa-folder-open"
-            value={monthlyMetrics.open}
+            value={metrics.open}
             label="Abiertos"
             color="blue"
             change="+12%"
           />
           <Metric
             icon="fas fa-trophy"
-            value={monthlyMetrics.won}
+            value={metrics.won}
             label="Ganados"
             color="green"
             change="+8%"
           />
           <Metric
             icon="fas fa-times-circle"
-            value={monthlyMetrics.lost}
+            value={metrics.lost}
             label="Perdidos"
             color="red"
             change="-2%"
           />
           <Metric
-            icon="fas fa-tasks"
-            value={monthlyMetrics.activeTasks}
-            label="Tareas activas"
+            icon="fas fa-euro-sign"
+            value={new Intl.NumberFormat('es-ES', {
+              style: 'currency',
+              currency: 'EUR',
+              minimumFractionDigits: 0,
+            }).format(metrics.sumOpen)}
+            label="Valor abierto"
             color="purple"
             change="+5%"
           />
