@@ -1,20 +1,36 @@
 import Card from "./Card";
 import Skeleton from "./Skeleton";
-import { scoreDeal } from "@/lib/db";
+import { getHotDeal } from "@/lib/db";
 import type { Deal } from "@/lib/types";
+import { useEffect, useState } from "react";
 
 interface HotDealCardProps {
-  deals: Deal[];
-  isLoading: boolean;
+  isLoading?: boolean;
 }
 
-export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
-  // Calculate hot deal using scoreDeal helper
-  const hotDeal = deals.length > 0 ? deals.reduce((hottest, deal) => {
-    const currentScore = scoreDeal(deal);
-    const hottestScore = scoreDeal(hottest);
-    return currentScore > hottestScore ? deal : hottest;
-  }, deals[0]) : null;
+export default function HotDealCard({ isLoading: externalLoading }: HotDealCardProps) {
+  const [hotDeals, setHotDeals] = useState<Deal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHotDeal = async () => {
+      try {
+        setIsLoading(true);
+        const deals = await getHotDeal();
+        setHotDeals(deals);
+      } catch (error) {
+        console.error("Error fetching hot deal:", error);
+        setHotDeals([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHotDeal();
+  }, []);
+
+  const hotDeal = hotDeals.length > 0 ? hotDeals[0] : null;
+  const loading = externalLoading || isLoading;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -46,7 +62,7 @@ export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
         </div>
       </div>
       
-      {isLoading ? (
+      {loading ? (
         <div className="p-4 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
           <Skeleton className="h-6 w-3/4 mb-2 bg-white/20" />
           <Skeleton className="h-4 w-1/2 mb-4 bg-white/20" />
@@ -86,7 +102,7 @@ export default function HotDealCard({ deals, isLoading }: HotDealCardProps) {
             <div className="flex items-center justify-between">
               <span className="text-green-100 text-sm">Score calculado</span>
               <span className="text-white font-bold">
-                {formatCurrency(scoreDeal(hotDeal))}
+                {formatCurrency((hotDeal.probability || 0) * (hotDeal.amount || 0))}
               </span>
             </div>
           </div>
