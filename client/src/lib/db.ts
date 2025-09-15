@@ -132,6 +132,91 @@ export async function getDeals(): Promise<Deal[]> {
   return demoData.deals;
 }
 
+export async function getHotDeal(): Promise<Deal[]> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("deals_hot_v1")
+      .select("*")
+      .order("score", { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    return data ?? [];
+  }
+  // Fallback to demo data - find hottest deal by score
+  const hottestDeal = demoData.deals.reduce((hottest, deal) => {
+    const currentScore = scoreDeal(deal);
+    const hottestScore = scoreDeal(hottest);
+    return currentScore > hottestScore ? deal : hottest;
+  }, demoData.deals[0]);
+  return hottestDeal ? [hottestDeal] : [];
+}
+
+export async function getStalledDeals(): Promise<Deal[]> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("deals_stalled_v1")
+      .select("*")
+      .order("inactivity", { ascending: false })
+      .limit(5);
+    if (error) throw error;
+    return data ?? [];
+  }
+  // Fallback to demo data - filter stalled deals
+  const stalledDeals = demoData.deals.filter(deal => {
+    if (!deal.next_step) return true;
+    if (deal.target_close_date) {
+      const closeDate = new Date(deal.target_close_date);
+      const now = new Date();
+      return closeDate < now;
+    }
+    return false;
+  });
+  return stalledDeals.slice(0, 5);
+}
+
+export async function getQuickMetrics(): Promise<{ open: number; won: number; lost: number; sumOpen: number; }> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    
+    // Execute all queries in parallel
+    const [openResult, wonResult, lostResult, sumOpenResult] = await Promise.all([
+      supabase.from("deals").select("id", { count: "exact" }).eq("status", "Open"),
+      supabase.from("deals").select("id", { count: "exact" }).eq("status", "Won"),
+      supabase.from("deals").select("id", { count: "exact" }).eq("status", "Lost"),
+      supabase.from("deals").select("amount").eq("status", "Open")
+    ]);
+
+    if (openResult.error) throw openResult.error;
+    if (wonResult.error) throw wonResult.error;
+    if (lostResult.error) throw lostResult.error;
+    if (sumOpenResult.error) throw sumOpenResult.error;
+
+    const sumOpen = sumOpenResult.data?.reduce((sum, deal) => sum + (deal.amount || 0), 0) || 0;
+
+    return {
+      open: openResult.count || 0,
+      won: wonResult.count || 0,
+      lost: lostResult.count || 0,
+      sumOpen
+    };
+  }
+  
+  // Fallback to demo data
+  const openDeals = demoData.deals.filter(deal => deal.status === 'Open');
+  const wonDeals = demoData.deals.filter(deal => deal.status === 'Won');
+  const lostDeals = demoData.deals.filter(deal => deal.status === 'Lost');
+  const sumOpen = openDeals.reduce((sum, deal) => sum + (deal.amount || 0), 0);
+
+  return {
+    open: openDeals.length,
+    won: wonDeals.length,
+    lost: lostDeals.length,
+    sumOpen
+  };
+}
+
 export async function addDeal(
   payload: Omit<Deal, "id" | "updated_at"> & { contact_id?: string },
 ): Promise<Deal> {
