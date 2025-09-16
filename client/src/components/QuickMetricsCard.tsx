@@ -2,7 +2,7 @@ import Card from "@/components/Card";
 import Metric from "@/components/Metric";
 import Skeleton from "@/components/Skeleton";
 import { getQuickMetrics } from "@/lib/db";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 interface QuickMetricsCardProps {
   tasks?: any[];
@@ -18,25 +18,10 @@ interface QuickMetrics {
 }
 
 export default function QuickMetricsCard({ tasks, deals, isLoading: externalLoading }: QuickMetricsCardProps) {
-  const [metrics, setMetrics] = useState<QuickMetrics>({ open: 0, won: 0, lost: 0, sumOpen: 0 });
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getQuickMetrics();
-        setMetrics(data);
-      } catch (error) {
-        console.error("Error fetching quick metrics:", error);
-        setMetrics({ open: 0, won: 0, lost: 0, sumOpen: 0 });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchMetrics();
-  }, []);
+  const { data: metrics = { open: 0, won: 0, lost: 0, sumOpen: 0 }, isLoading } = useQuery({
+    queryKey: ["quickMetrics"],
+    queryFn: getQuickMetrics,
+  });
 
   const loading = externalLoading || isLoading;
 

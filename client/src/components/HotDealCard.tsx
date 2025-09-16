@@ -1,8 +1,11 @@
 import Card from "./Card";
 import Skeleton from "./Skeleton";
+import AIEmailGenerator from "./AIEmailGenerator";
 import { getHotDeal } from "@/lib/db";
+import { Button } from "./ui/button";
+import { Mail, ExternalLink } from "lucide-react";
 import type { Deal } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 interface HotDealCardProps {
   deals?: Deal[];
@@ -10,25 +13,10 @@ interface HotDealCardProps {
 }
 
 export default function HotDealCard({ deals, isLoading: externalLoading }: HotDealCardProps) {
-  const [hotDeals, setHotDeals] = useState<Deal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchHotDeal = async () => {
-      try {
-        setIsLoading(true);
-        const deals = await getHotDeal();
-        setHotDeals(deals);
-      } catch (error) {
-        console.error("Error fetching hot deal:", error);
-        setHotDeals([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchHotDeal();
-  }, []);
+  const { data: hotDeals = [], isLoading } = useQuery({
+    queryKey: ["hotDeal"],
+    queryFn: getHotDeal,
+  });
 
   const hotDeal = hotDeals.length > 0 ? hotDeals[0] : null;
   const loading = externalLoading || isLoading;
@@ -100,11 +88,28 @@ export default function HotDealCard({ deals, isLoading: externalLoading }: HotDe
           </div>
           
           <div className="mt-4 pt-4 border-t border-white/20">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-green-100 text-sm">Score calculado</span>
               <span className="text-white font-bold">
                 {formatCurrency((hotDeal.probability || 0) * (hotDeal.amount || 0))}
               </span>
+            </div>
+            
+            {/* AI Actions */}
+            <div className="flex gap-2">
+              <AIEmailGenerator 
+                deal={hotDeal}
+                trigger={
+                  <Button size="sm" variant="secondary" className="gap-2 flex-1 bg-white/20 text-white hover:bg-white/30">
+                    <Mail className="h-4 w-4" />
+                    Email con IA
+                  </Button>
+                }
+              />
+              <Button size="sm" variant="ghost" className="gap-2 text-green-100 hover:bg-white/20">
+                <ExternalLink className="h-4 w-4" />
+                Ver Deal
+              </Button>
             </div>
           </div>
         </div>

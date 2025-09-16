@@ -60,9 +60,14 @@ export default function Dashboard() {
   const handleInjectDemo = async () => {
     try {
       await seedDemo();
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["quickMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["stalledDeals"] });
+      queryClient.invalidateQueries({ queryKey: ["hotDeal"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
       toast({
         title: "Demo data injected",
         description: "Sample data has been added successfully",

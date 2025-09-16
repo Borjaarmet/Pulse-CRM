@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getDeals, getContacts } from "@/lib/db";
-import { calculateDealScore, calculateContactScore, determinePriority } from "@/lib/scoring";
+import { calculateDealScore, calculateContactScore } from "@/lib/scoring";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
 import ScoreBadge from "./ScoreBadge";
 import PriorityBadge from "./PriorityBadge";
 import RiskBadge from "./RiskBadge";
+import ScoringTooltip from "./ScoringTooltip";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
@@ -166,45 +167,53 @@ export default function ScoringDashboard({ className }: ScoringDashboardProps) {
 
         {/* Métricas principales */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-red-600">Deals Hot</p>
-                <p className="text-2xl font-bold text-red-700">{dealsByPriority.Hot.length}</p>
+          <ScoringTooltip type="hot" count={dealsByPriority.Hot.length}>
+            <div className="bg-red-50 p-4 rounded-lg border border-red-200 hover:bg-red-100 transition-colors duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-600">Deals Hot</p>
+                  <p className="text-2xl font-bold text-red-700">{dealsByPriority.Hot.length}</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-red-500" />
               </div>
-              <TrendingUp className="h-8 w-8 text-red-500" />
             </div>
-          </div>
+          </ScoringTooltip>
 
-          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-yellow-600">Deals Warm</p>
-                <p className="text-2xl font-bold text-yellow-700">{dealsByPriority.Warm.length}</p>
+          <ScoringTooltip type="warm" count={dealsByPriority.Warm.length}>
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition-colors duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-600">Deals Warm</p>
+                  <p className="text-2xl font-bold text-yellow-700">{dealsByPriority.Warm.length}</p>
+                </div>
+                <Target className="h-8 w-8 text-yellow-500" />
               </div>
-              <Target className="h-8 w-8 text-yellow-500" />
             </div>
-          </div>
+          </ScoringTooltip>
 
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600">Deals Cold</p>
-                <p className="text-2xl font-bold text-blue-700">{dealsByPriority.Cold.length}</p>
+          <ScoringTooltip type="cold" count={dealsByPriority.Cold.length}>
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600">Deals Cold</p>
+                  <p className="text-2xl font-bold text-blue-700">{dealsByPriority.Cold.length}</p>
+                </div>
+                <TrendingDown className="h-8 w-8 text-blue-500" />
               </div>
-              <TrendingDown className="h-8 w-8 text-blue-500" />
             </div>
-          </div>
+          </ScoringTooltip>
 
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-green-600">Score Promedio</p>
-                <p className="text-2xl font-bold text-green-700">{Math.round(avgDealScore)}</p>
+          <ScoringTooltip type="average" count={Math.round(avgDealScore)}>
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200 hover:bg-green-100 transition-colors duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600">Score Promedio</p>
+                  <p className="text-2xl font-bold text-green-700">{Math.round(avgDealScore)}</p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-green-500" />
               </div>
-              <BarChart3 className="h-8 w-8 text-green-500" />
             </div>
-          </div>
+          </ScoringTooltip>
         </div>
 
         {/* Alertas de riesgo */}
@@ -248,29 +257,35 @@ export default function ScoringDashboard({ className }: ScoringDashboardProps) {
               Top Deals por Score
             </h3>
             <div className="space-y-3">
-              {topDeals.map((deal, index) => (
-                <div key={deal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
-                      {index + 1}
+              {topDeals.map((deal, index) => {
+                const tooltipType = deal.calculatedPriority === 'Hot' ? 'hot' : 
+                                   deal.calculatedPriority === 'Warm' ? 'warm' : 'cold';
+                return (
+                <ScoringTooltip key={deal.id} type={tooltipType} count={deal.calculatedScore}>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-help">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium">{deal.title}</p>
+                        <p className="text-sm text-muted-foreground">{deal.company}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{deal.title}</p>
-                      <p className="text-sm text-muted-foreground">{deal.company}</p>
+                    <div className="flex items-center gap-3">
+                      <ScoreBadge score={deal.calculatedScore} priority={deal.calculatedPriority} />
+                      <span className="text-sm font-medium">
+                        {new Intl.NumberFormat("es-ES", {
+                          style: "currency",
+                          currency: "EUR",
+                          minimumFractionDigits: 0,
+                        }).format(deal.amount || 0)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <ScoreBadge score={deal.calculatedScore} priority={deal.calculatedPriority} />
-                    <span className="text-sm font-medium">
-                      {new Intl.NumberFormat("es-ES", {
-                        style: "currency",
-                        currency: "EUR",
-                        minimumFractionDigits: 0,
-                      }).format(deal.amount || 0)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                </ScoringTooltip>
+                );
+              })}
             </div>
           </Card>
         </TabsContent>
@@ -282,23 +297,29 @@ export default function ScoringDashboard({ className }: ScoringDashboardProps) {
               Top Contactos por Score
             </h3>
             <div className="space-y-3">
-              {topContacts.map((contact, index) => (
-                <div key={contact.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
-                      {index + 1}
+              {topContacts.map((contact, index) => {
+                const tooltipType = contact.calculatedPriority === 'Hot' ? 'hot' : 
+                                   contact.calculatedPriority === 'Warm' ? 'warm' : 'cold';
+                return (
+                <ScoringTooltip key={contact.id} type={tooltipType} count={contact.calculatedScore}>
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-help">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-medium">{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">{contact.company}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{contact.name}</p>
-                      <p className="text-sm text-muted-foreground">{contact.company}</p>
+                    <div className="flex items-center gap-3">
+                      <ScoreBadge score={contact.calculatedScore} priority={contact.calculatedPriority} />
+                      <PriorityBadge priority={contact.calculatedPriority} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <ScoreBadge score={contact.calculatedScore} priority={contact.calculatedPriority} />
-                    <PriorityBadge priority={contact.calculatedPriority} />
-                  </div>
-                </div>
-              ))}
+                </ScoringTooltip>
+                );
+              })}
             </div>
           </Card>
         </TabsContent>

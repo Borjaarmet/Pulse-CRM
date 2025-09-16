@@ -178,7 +178,7 @@ function calculateWeightedScore(factors: ScoringFactors): number {
 /**
  * Determina la prioridad basada en el score
  */
-function determinePriority(score: number): Priority {
+export function determinePriority(score: number): Priority {
   if (score >= PRIORITY_THRESHOLDS.Hot) return 'Hot';
   if (score >= PRIORITY_THRESHOLDS.Warm) return 'Warm';
   return 'Cold';

@@ -2,7 +2,7 @@ import Card from "./Card";
 import Skeleton from "./Skeleton";
 import { getStalledDeals } from "@/lib/db";
 import type { Deal } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 interface StalledDealsCardProps {
   deals?: Deal[];
@@ -10,25 +10,10 @@ interface StalledDealsCardProps {
 }
 
 export default function StalledDealsCard({ deals, isLoading: externalLoading }: StalledDealsCardProps) {
-  const [stalledDeals, setStalledDeals] = useState<Deal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStalledDeals = async () => {
-      try {
-        setIsLoading(true);
-        const deals = await getStalledDeals();
-        setStalledDeals(deals);
-      } catch (error) {
-        console.error("Error fetching stalled deals:", error);
-        setStalledDeals([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStalledDeals();
-  }, []);
+  const { data: stalledDeals = [], isLoading } = useQuery({
+    queryKey: ["stalledDeals"],
+    queryFn: getStalledDeals,
+  });
 
   const loading = externalLoading || isLoading;
 
