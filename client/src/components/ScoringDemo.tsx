@@ -192,7 +192,7 @@ export default function ScoringDemo() {
                   <div>
                     <div className="font-medium">{contact.name}</div>
                     <div className="text-sm text-muted-foreground">
-                      {contact.company} • {contact.dealCount} deals
+                      {typeof contact.company === 'string' ? contact.company : 'Sin empresa'} • {contact.dealCount} deals
                     </div>
                   </div>
                 </div>

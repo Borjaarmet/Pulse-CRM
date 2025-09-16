@@ -109,20 +109,24 @@ export default function DealModal({
       return;
     }
 
-    const amountValue = amount ? Number(amount) : null;
+    const amountValue = amount ? Number(amount) : undefined;
     const probabilityValue = Math.max(0, Math.min(100, Number(probability) || 0));
 
     addDealMutation.mutate({
       title: title.trim(),
-      company: company.trim() || null,
+      company: company.trim() || undefined,
       amount: amountValue,
       stage,
       probability: probabilityValue,
-      target_close_date: targetClose || null,
-      next_step: nextStep.trim() || null,
-      contact_id: contactId || null,
+      target_close_date: targetClose || undefined,
+      next_step: nextStep.trim() || undefined,
+      contact_id: contactId || undefined,
       status: 'Open',
-      risk: 'Bajo',
+      score: 0,
+      priority: 'Cold' as const,
+      risk_level: 'Bajo' as const,
+      inactivity_days: 0,
+      created_at: new Date().toISOString(),
     });
   };
 

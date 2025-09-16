@@ -137,7 +137,7 @@ export default function DealsList({ className }: DealsListProps) {
     const patch = {
       title: formData.get("title") as string,
       company: formData.get("company") as string,
-      amount: formData.get("amount") ? Number(formData.get("amount")) : null,
+      amount: formData.get("amount") ? Number(formData.get("amount")) : undefined,
       stage: formData.get("stage") as string,
       probability: Number(formData.get("probability")) || 0,
       next_step: formData.get("next_step") as string,
@@ -153,7 +153,7 @@ export default function DealsList({ className }: DealsListProps) {
     }
   };
 
-  const formatCurrency = (amount: number | null) => {
+  const formatCurrency = (amount: number | undefined) => {
     if (!amount) return "-";
     return new Intl.NumberFormat("es-ES", {
       style: "currency",

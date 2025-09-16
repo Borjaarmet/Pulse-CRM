@@ -37,6 +37,7 @@ export interface Contact {
   email?: string;
   phone?: string;
   company_id?: string;
+  company?: string; // Cambio: company es string, no Company
   position?: string;
   source?: string;
   score: number;
@@ -46,7 +47,7 @@ export interface Contact {
   created_at: string;
   updated_at: string;
   // Relations
-  company?: Company;
+  companyData?: Company; // Relación con la entidad Company
 }
 
 export interface Deal {

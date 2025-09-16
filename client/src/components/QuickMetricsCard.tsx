@@ -5,6 +5,8 @@ import { getQuickMetrics } from "@/lib/db";
 import { useEffect, useState } from "react";
 
 interface QuickMetricsCardProps {
+  tasks?: any[];
+  deals?: any[];
   isLoading?: boolean;
 }
 
@@ -15,7 +17,7 @@ interface QuickMetrics {
   sumOpen: number;
 }
 
-export default function QuickMetricsCard({ isLoading: externalLoading }: QuickMetricsCardProps) {
+export default function QuickMetricsCard({ tasks, deals, isLoading: externalLoading }: QuickMetricsCardProps) {
   const [metrics, setMetrics] = useState<QuickMetrics>({ open: 0, won: 0, lost: 0, sumOpen: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -87,11 +89,7 @@ export default function QuickMetricsCard({ isLoading: externalLoading }: QuickMe
           />
           <Metric
             icon="fas fa-euro-sign"
-            value={new Intl.NumberFormat('es-ES', {
-              style: 'currency',
-              currency: 'EUR',
-              minimumFractionDigits: 0,
-            }).format(metrics.sumOpen)}
+            value={metrics.sumOpen}
             label="Valor abierto"
             color="purple"
             change="+5%"

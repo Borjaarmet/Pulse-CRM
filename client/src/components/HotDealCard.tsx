@@ -5,10 +5,11 @@ import type { Deal } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 interface HotDealCardProps {
+  deals?: Deal[];
   isLoading?: boolean;
 }
 
-export default function HotDealCard({ isLoading: externalLoading }: HotDealCardProps) {
+export default function HotDealCard({ deals, isLoading: externalLoading }: HotDealCardProps) {
   const [hotDeals, setHotDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

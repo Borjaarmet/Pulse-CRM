@@ -193,7 +193,7 @@ export async function getQuickMetrics(): Promise<{ open: number; won: number; lo
     if (lostResult.error) throw lostResult.error;
     if (sumOpenResult.error) throw sumOpenResult.error;
 
-    const sumOpen = sumOpenResult.data?.reduce((sum, deal) => sum + (deal.amount || 0), 0) || 0;
+    const sumOpen = sumOpenResult.data?.reduce((sum: number, deal: any) => sum + (deal.amount || 0), 0) || 0;
 
     return {
       open: openResult.count || 0,
@@ -446,7 +446,8 @@ export async function seedDemo(): Promise<void> {
       ).toISOString(),
       state: "To Do",
       priority: "Media",
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Task,
     {
       id: generateId(),
@@ -460,7 +461,8 @@ export async function seedDemo(): Promise<void> {
       ).toISOString(),
       state: "To Do",
       priority: "Alta",
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Task,
     {
       id: generateId(),
@@ -474,7 +476,8 @@ export async function seedDemo(): Promise<void> {
       ).toISOString(),
       state: "To Do",
       priority: "Baja",
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Task,
   ];
 
@@ -498,6 +501,7 @@ export async function seedDemo(): Promise<void> {
       risk_level: "Bajo" as const,
       last_activity: now.toISOString(),
       inactivity_days: 0,
+      created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
     {
@@ -508,13 +512,14 @@ export async function seedDemo(): Promise<void> {
       stage: "Propuesta",
       probability: 70,
       target_close_date: pastDate.toISOString(),
-      next_step: null,
+      next_step: undefined,
       status: "Open",
       score: 0,
       priority: "Cold" as const,
       risk_level: "Bajo" as const,
       last_activity: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 días atrás
       inactivity_days: 5,
+      created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
     {
@@ -532,6 +537,7 @@ export async function seedDemo(): Promise<void> {
       risk_level: "Bajo" as const,
       last_activity: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 días atrás
       inactivity_days: 2,
+      created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
     {
@@ -553,6 +559,7 @@ export async function seedDemo(): Promise<void> {
       risk_level: "Bajo" as const,
       last_activity: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
       inactivity_days: 0,
+      created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
     {
@@ -570,6 +577,7 @@ export async function seedDemo(): Promise<void> {
       risk_level: "Bajo" as const,
       last_activity: now.toISOString(), // Hoy
       inactivity_days: 0,
+      created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
   ];
@@ -583,7 +591,8 @@ export async function seedDemo(): Promise<void> {
       score: 0,
       priority: "Cold" as const,
       last_activity: now.toISOString(),
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Contact,
     {
       id: generateId(),
@@ -593,7 +602,8 @@ export async function seedDemo(): Promise<void> {
       score: 0,
       priority: "Cold" as const,
       last_activity: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 días atrás
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Contact,
     {
       id: generateId(),
@@ -603,7 +613,8 @@ export async function seedDemo(): Promise<void> {
       score: 0,
       priority: "Cold" as const,
       last_activity: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Contact,
     {
       id: generateId(),
@@ -613,7 +624,8 @@ export async function seedDemo(): Promise<void> {
       score: 0,
       priority: "Cold" as const,
       last_activity: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 semana atrás
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Contact,
     {
       id: generateId(),
@@ -623,7 +635,8 @@ export async function seedDemo(): Promise<void> {
       score: 0,
       priority: "Cold" as const,
       last_activity: now.toISOString(), // Hoy
-      inserted_at: now.toISOString(),
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
     } as Contact,
   ];
 
@@ -633,13 +646,13 @@ export async function seedDemo(): Promise<void> {
       await Promise.all([
         supabase
           .from("tasks")
-          .insert(demoTasks.map(({ id, inserted_at, ...t }) => t)),
+          .insert(demoTasks.map(({ id, created_at, updated_at, ...t }) => t)),
         supabase
           .from("deals")
-          .insert(demoDeals.map(({ id, updated_at, ...d }) => d)),
+          .insert(demoDeals.map(({ id, created_at, updated_at, ...d }) => d)),
         supabase
           .from("contacts")
-          .insert(demoContacts.map(({ id, inserted_at, ...c }) => c)),
+          .insert(demoContacts.map(({ id, created_at, updated_at, ...c }) => c)),
       ]);
     } catch (error) {
       console.error("Error seeding demo data:", error);

@@ -102,7 +102,7 @@ export default function ContactsList({ className }: ContactsListProps) {
       const matchesSearch = 
         (contact.name && contact.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (contact.email && contact.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
+        (contact.company && typeof contact.company === 'string' && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesPriority = priorityFilter === "all" || contact.priority === priorityFilter;
       
@@ -250,7 +250,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                     <TableRow key={contact.id}>
                       <TableCell className="font-medium">{contact.name}</TableCell>
                       <TableCell>{contact.email || "-"}</TableCell>
-                      <TableCell>{contact.company || "-"}</TableCell>
+                      <TableCell>{typeof contact.company === 'string' ? contact.company : "-"}</TableCell>
                       <TableCell>
                         {scoringResult ? (
                           <ScoringTooltip scoringResult={scoringResult}>
@@ -371,7 +371,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                 </label>
                 <Input
                   name="company"
-                  defaultValue={editingContact.company || ""}
+                  defaultValue={typeof editingContact.company === 'string' ? editingContact.company : ""}
                 />
               </div>
 
