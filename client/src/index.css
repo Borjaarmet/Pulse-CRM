@@ -3,39 +3,39 @@
 @tailwind utilities;
 
 :root {
-  /* Light theme - Elegant and modern */
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(222.2 84% 4.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222.2 84% 4.9%);
-  --popover: hsl(0 0% 100%);
+  /* Spectacular Gradient Theme - Premium CRM */
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  --foreground: hsl(0 0% 100%);
+  --card: rgba(255, 255, 255, 0.15);
+  --card-foreground: hsl(0 0% 100%);
+  --popover: rgba(255, 255, 255, 0.95);
   --popover-foreground: hsl(222.2 84% 4.9%);
-  --primary: hsl(221.2 83.2% 53.3%);
-  --primary-foreground: hsl(210 40% 98%);
-  --secondary: hsl(210 40% 96%);
-  --secondary-foreground: hsl(222.2 84% 4.9%);
-  --muted: hsl(210 40% 96%);
-  --muted-foreground: hsl(215.4 16.3% 46.9%);
-  --accent: hsl(210 40% 96%);
-  --accent-foreground: hsl(222.2 84% 4.9%);
+  --primary: hsl(280 100% 70%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: rgba(255, 255, 255, 0.2);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: rgba(255, 255, 255, 0.1);
+  --muted-foreground: hsl(0 0% 90%);
+  --accent: rgba(255, 255, 255, 0.2);
+  --accent-foreground: hsl(0 0% 100%);
   --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(210 40% 98%);
-  --border: hsl(214.3 31.8% 91.4%);
-  --input: hsl(214.3 31.8% 91.4%);
-  --ring: hsl(221.2 83.2% 53.3%);
-  --chart-1: hsl(221.2 83.2% 53.3%);
-  --chart-2: hsl(142.1 76.2% 36.3%);
-  --chart-3: hsl(47.9 95.8% 53.1%);
-  --chart-4: hsl(346.8 77.2% 49.8%);
-  --chart-5: hsl(262.1 83.3% 57.8%);
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(222.2 84% 4.9%);
-  --sidebar-primary: hsl(221.2 83.2% 53.3%);
-  --sidebar-primary-foreground: hsl(210 40% 98%);
-  --sidebar-accent: hsl(210 40% 96%);
-  --sidebar-accent-foreground: hsl(222.2 84% 4.9%);
-  --sidebar-border: hsl(214.3 31.8% 91.4%);
-  --sidebar-ring: hsl(221.2 83.2% 53.3%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: rgba(255, 255, 255, 0.2);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: hsl(280 100% 70%);
+  --chart-1: hsl(280 100% 70%);
+  --chart-2: hsl(200 100% 60%);
+  --chart-3: hsl(50 100% 60%);
+  --chart-4: hsl(340 100% 60%);
+  --chart-5: hsl(120 100% 60%);
+  --sidebar: rgba(255, 255, 255, 0.1);
+  --sidebar-foreground: hsl(0 0% 100%);
+  --sidebar-primary: hsl(280 100% 70%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: rgba(255, 255, 255, 0.2);
+  --sidebar-accent-foreground: hsl(0 0% 100%);
+  --sidebar-border: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: hsl(280 100% 70%);
   
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -118,7 +118,9 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased text-foreground;
+    background: var(--background);
+    min-height: 100vh;
     transition: background-color var(--transition-normal), color var(--transition-normal);
   }
 
@@ -167,9 +169,26 @@
 }
 
 @layer components {
-  /* Custom component styles */
+  /* Modern glassmorphism effects */
   .glass-effect {
-    @apply bg-background/80 backdrop-blur-sm border border-border/50;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
   }
 
   .gradient-border {
@@ -189,5 +208,88 @@
 
   .button-hover {
     @apply transition-all duration-200 hover:scale-105 active:scale-95;
+  }
+
+  /* Spectacular metric cards */
+  .metric-card-hot {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%);
+    box-shadow: 0 10px 40px rgba(255, 107, 107, 0.4);
+  }
+  
+  .metric-card-warm {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 50%, #43e97b 100%);
+    box-shadow: 0 10px 40px rgba(79, 172, 254, 0.4);
+  }
+  
+  .metric-card-cold {
+    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 50%, #d299c2 100%);
+    box-shadow: 0 10px 40px rgba(168, 237, 234, 0.4);
+  }
+
+  .metric-card-neutral {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 50%, #fa8bff 100%);
+    box-shadow: 0 10px 40px rgba(250, 112, 154, 0.4);
+  }
+
+  /* Spectacular dashboard cards */
+  .card-gradient-hot {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+    box-shadow: 0 15px 50px rgba(255, 107, 107, 0.5);
+  }
+
+  .card-gradient-warm {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    box-shadow: 0 15px 50px rgba(79, 172, 254, 0.5);
+  }
+
+  .card-gradient-cold {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 15px 50px rgba(102, 126, 234, 0.5);
+  }
+
+  .card-gradient-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    box-shadow: 0 15px 50px rgba(17, 153, 142, 0.5);
+  }
+
+  /* Enhanced glass effects for better readability */
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Spectacular animations */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(1deg); }
+  }
+
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Premium CRM styling */
+  .crm-premium {
+    background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe);
+    background-size: 600% 600%;
+    animation: gradientShift 15s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
   }
 }

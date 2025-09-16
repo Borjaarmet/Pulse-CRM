@@ -155,10 +155,12 @@ export default function AIPredictions({ deals, contacts, className }: AIPredicti
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">🤖 Predicciones IA</h3>
+              <div className="p-2 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg">
+                <Brain className="h-4 w-4 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">🤖 Predicciones IA</h3>
             </div>
-            <Badge variant="secondary" className="gap-1">
+            <Badge className="gap-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
               <Sparkles className="h-3 w-3" />
               {predictions.length} insights
             </Badge>

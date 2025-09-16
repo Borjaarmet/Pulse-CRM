@@ -51,34 +51,49 @@ export default function QuickMetricsCard({ tasks, deals, isLoading: externalLoad
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          <Metric
-            icon="fas fa-folder-open"
-            value={metrics.open}
-            label="Abiertos"
-            color="blue"
-            change="+12%"
-          />
-          <Metric
-            icon="fas fa-trophy"
-            value={metrics.won}
-            label="Ganados"
-            color="green"
-            change="+8%"
-          />
-          <Metric
-            icon="fas fa-times-circle"
-            value={metrics.lost}
-            label="Perdidos"
-            color="red"
-            change="-2%"
-          />
-          <Metric
-            icon="fas fa-euro-sign"
-            value={metrics.sumOpen}
-            label="Valor abierto"
-            color="purple"
-            change="+5%"
-          />
+          <div className="metric-card-warm p-4 rounded-xl text-white shadow-lg hover:scale-105 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white/90">Abiertos</p>
+                <p className="text-2xl font-bold text-white">{metrics.open}</p>
+                <p className="text-xs text-white/70">+12%</p>
+              </div>
+              <i className="fas fa-folder-open text-2xl text-white/80"></i>
+            </div>
+          </div>
+
+          <div className="metric-card-cold p-4 rounded-xl text-white shadow-lg hover:scale-105 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white/90">Ganados</p>
+                <p className="text-2xl font-bold text-white">{metrics.won}</p>
+                <p className="text-xs text-white/70">+8%</p>
+              </div>
+              <i className="fas fa-trophy text-2xl text-white/80"></i>
+            </div>
+          </div>
+
+          <div className="metric-card-hot p-4 rounded-xl text-white shadow-lg hover:scale-105 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white/90">Perdidos</p>
+                <p className="text-2xl font-bold text-white">{metrics.lost}</p>
+                <p className="text-xs text-white/70">-2%</p>
+              </div>
+              <i className="fas fa-times-circle text-2xl text-white/80"></i>
+            </div>
+          </div>
+
+          <div className="metric-card-neutral p-4 rounded-xl text-white shadow-lg hover:scale-105 transition-all duration-300">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-white/90">Valor</p>
+                <p className="text-xl font-bold text-white">€{Math.round(metrics.sumOpen/1000)}k</p>
+                <p className="text-xs text-white/70">+5%</p>
+              </div>
+              <i className="fas fa-euro-sign text-2xl text-white/80"></i>
+            </div>
+          </div>
         </div>
       )}
     </Card>

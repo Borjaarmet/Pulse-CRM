@@ -168,49 +168,49 @@ export default function ScoringDashboard({ className }: ScoringDashboardProps) {
         {/* Métricas principales */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <ScoringTooltip type="hot" count={dealsByPriority.Hot.length}>
-            <div className="bg-red-50 p-4 rounded-lg border border-red-200 hover:bg-red-100 transition-colors duration-200">
+            <div className="card-gradient-hot p-4 rounded-xl text-white hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-red-600">Deals Hot</p>
-                  <p className="text-2xl font-bold text-red-700">{dealsByPriority.Hot.length}</p>
+                  <p className="text-sm font-medium text-white/90">Deals Hot</p>
+                  <p className="text-2xl font-bold text-white">{dealsByPriority.Hot.length}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-red-500" />
+                <TrendingUp className="h-8 w-8 text-white/80" />
               </div>
             </div>
           </ScoringTooltip>
 
           <ScoringTooltip type="warm" count={dealsByPriority.Warm.length}>
-            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition-colors duration-200">
+            <div className="card-gradient-warm p-4 rounded-xl text-white hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-yellow-600">Deals Warm</p>
-                  <p className="text-2xl font-bold text-yellow-700">{dealsByPriority.Warm.length}</p>
+                  <p className="text-sm font-medium text-white/90">Deals Warm</p>
+                  <p className="text-2xl font-bold text-white">{dealsByPriority.Warm.length}</p>
                 </div>
-                <Target className="h-8 w-8 text-yellow-500" />
+                <Target className="h-8 w-8 text-white/80" />
               </div>
             </div>
           </ScoringTooltip>
 
           <ScoringTooltip type="cold" count={dealsByPriority.Cold.length}>
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors duration-200">
+            <div className="card-gradient-cold p-4 rounded-xl text-white hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600">Deals Cold</p>
-                  <p className="text-2xl font-bold text-blue-700">{dealsByPriority.Cold.length}</p>
+                  <p className="text-sm font-medium text-white/90">Deals Cold</p>
+                  <p className="text-2xl font-bold text-white">{dealsByPriority.Cold.length}</p>
                 </div>
-                <TrendingDown className="h-8 w-8 text-blue-500" />
+                <TrendingDown className="h-8 w-8 text-white/80" />
               </div>
             </div>
           </ScoringTooltip>
 
           <ScoringTooltip type="average" count={Math.round(avgDealScore)}>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200 hover:bg-green-100 transition-colors duration-200">
+            <div className="card-gradient-success p-4 rounded-xl text-white hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-600">Score Promedio</p>
-                  <p className="text-2xl font-bold text-green-700">{Math.round(avgDealScore)}</p>
+                  <p className="text-sm font-medium text-white/90">Score Promedio</p>
+                  <p className="text-2xl font-bold text-white">{Math.round(avgDealScore)}</p>
                 </div>
-                <BarChart3 className="h-8 w-8 text-green-500" />
+                <BarChart3 className="h-8 w-8 text-white/80" />
               </div>
             </div>
           </ScoringTooltip>

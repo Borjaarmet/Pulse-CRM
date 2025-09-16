@@ -28,17 +28,21 @@ function ModeBadge({ isDemo }: { isDemo: boolean }) {
 
 export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps) {
   return (
-    <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50 transition-all duration-300">
+    <header className="relative z-50 border-b border-white/10 sticky top-0 transition-all duration-300" style={{
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(20px)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+    }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-primary-foreground text-sm">⚡</span>
+            <div className="w-8 h-8 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-white text-sm">⚡</span>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-foreground tracking-tight">Pulse CRM</h1>
-              <span className="text-xs text-muted-foreground -mt-1">Dashboard POC</span>
+              <h1 className="text-xl font-bold text-white tracking-tight">Pulse CRM</h1>
+              <span className="text-xs text-white/70 -mt-1">Dashboard POC</span>
             </div>
           </div>
 
@@ -50,19 +54,19 @@ export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps)
             {isDemo && (
               <button
                 onClick={onInjectDemo}
-                className="px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-all duration-200 button-hover"
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 rounded-lg transition-all duration-200 button-hover shadow-lg"
                 aria-label="Inyectar datos de demostración"
               >
-                Inyectar demo
+                ✨ Inyectar demo
               </button>
             )}
 
             <button
               onClick={onRefresh}
-              className="px-3 py-1.5 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-lg transition-all duration-200 button-hover"
+              className="px-4 py-2 text-sm font-medium text-white bg-white/20 hover:bg-white/30 rounded-lg transition-all duration-200 button-hover backdrop-blur-sm border border-white/20"
               aria-label="Refrescar datos"
             >
-              Refrescar
+              🔄 Refrescar
             </button>
 
             {/* <ThemeToggle /> */}

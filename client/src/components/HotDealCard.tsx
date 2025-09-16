@@ -58,7 +58,10 @@ export default function HotDealCard({ deals, isLoading: externalLoading }: HotDe
           <Skeleton className="h-8 w-1/3 bg-white/20" />
         </div>
       ) : hotDeal ? (
-        <div className="p-4 bg-gradient-to-br from-green-500 to-green-600 rounded-xl text-white" data-testid="hot-deal-card">
+        <div className="p-4 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 rounded-xl text-white shadow-2xl relative overflow-hidden" data-testid="hot-deal-card">
+          {/* Animated background effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-pink-400/20 to-purple-400/20 animate-pulse"></div>
+          <div className="relative z-10">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h3 className="font-semibold text-white">{hotDeal.title}</h3>
@@ -111,6 +114,7 @@ export default function HotDealCard({ deals, isLoading: externalLoading }: HotDe
                 Ver Deal
               </Button>
             </div>
+          </div>
           </div>
         </div>
       ) : (

@@ -140,7 +140,7 @@ export default function InfoTooltip({ type, count, children }: InfoTooltipProps)
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-sm p-4 bg-popover border shadow-lg">
+        <TooltipContent side="bottom" className="max-w-sm p-4 bg-popover border shadow-lg z-50">
           <div className="space-y-3">
             {/* Header */}
             <div className="flex items-center gap-2">

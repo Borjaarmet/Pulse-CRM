@@ -92,14 +92,34 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background" data-testid="dashboard">
+    <div className="min-h-screen relative overflow-hidden crm-premium" data-testid="dashboard">
+      {/* Spectacular multi-layer animated background */}
+      <div className="fixed inset-0 z-0">
+        {/* Base gradient layers */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900"></div>
+        <div className="absolute inset-0 bg-gradient-to-tl from-blue-600/40 via-purple-600/30 to-pink-600/40"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-500/20 to-pink-500/20"></div>
+        
+        {/* Dynamic floating orbs */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse float-animation"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl animate-pulse float-animation" style={{animationDelay: '2s'}}></div>
+          <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-emerald-400/15 to-teal-400/15 rounded-full blur-2xl animate-pulse float-animation" style={{animationDelay: '4s'}}></div>
+          <div className="absolute top-3/4 left-1/4 w-48 h-48 bg-gradient-to-r from-yellow-400/15 to-orange-400/15 rounded-full blur-2xl animate-pulse float-animation" style={{animationDelay: '1s'}}></div>
+        </div>
+        
+        {/* Radial gradients for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.4),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.3),transparent_50%)]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.3),transparent_50%)]"></div>
+      </div>
       <Header
         isDemo={isDemo}
         onInjectDemo={handleInjectDemo}
         onRefresh={handleRefresh}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {/* Scoring Demo Section */}
           <ScoringDashboard />
