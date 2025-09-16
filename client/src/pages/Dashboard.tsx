@@ -7,6 +7,7 @@ import StalledDealsCard from "@/components/StalledDealsCard";
 import RecentActivityCard from "@/components/RecentActivityCard";
 import ShortcutsCard from "@/components/ShortcutsCard";
 import QuickMetricsCard from "@/components/QuickMetricsCard";
+import ScoringDashboard from "@/components/ScoringDashboard";
 import Skeleton from "@/components/Skeleton";
 import { getTasks, getDeals, getContacts, seedDemo, subscribeToChanges } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 // Lazy load the list components
 const DealsList = lazy(() => import("@/components/DealsList"));
 const ContactsList = lazy(() => import("@/components/ContactsList"));
+const CompaniesList = lazy(() => import("@/components/CompaniesList"));
 
 export default function Dashboard() {
   const [isDemo, setIsDemo] = useState(false);
@@ -93,32 +95,41 @@ export default function Dashboard() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Left Column - 2/3 width */}
-          <div className="xl:col-span-2 space-y-6">
-            <TasksCard tasks={tasks} isLoading={tasksLoading} />
-            <StalledDealsCard deals={deals} isLoading={dealsLoading} />
-            <RecentActivityCard />
-          </div>
+        <div className="space-y-6">
+          {/* Scoring Demo Section */}
+          <ScoringDashboard />
+          
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Left Column - 2/3 width */}
+            <div className="xl:col-span-2 space-y-6">
+              <TasksCard tasks={tasks} isLoading={tasksLoading} />
+              <StalledDealsCard deals={deals} isLoading={dealsLoading} />
+              <RecentActivityCard />
+            </div>
 
-          {/* Right Column - 1/3 width */}
-          <div className="space-y-6">
-            <HotDealCard deals={deals} isLoading={dealsLoading} />
-            <ShortcutsCard />
-            <QuickMetricsCard
-              tasks={tasks}
-              deals={deals}
-              isLoading={tasksLoading || dealsLoading}
-            />
-            
-            {/* Lazy loaded lists */}
-            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-              <DealsList />
-            </Suspense>
-            
-            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-              <ContactsList />
-            </Suspense>
+            {/* Right Column - 1/3 width */}
+            <div className="space-y-6">
+              <HotDealCard deals={deals} isLoading={dealsLoading} />
+              <ShortcutsCard />
+              <QuickMetricsCard
+                tasks={tasks}
+                deals={deals}
+                isLoading={tasksLoading || dealsLoading}
+              />
+              
+              {/* Lazy loaded lists */}
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <DealsList />
+              </Suspense>
+              
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <ContactsList />
+              </Suspense>
+              
+              <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <CompaniesList />
+              </Suspense>
+            </div>
           </div>
         </div>
       </main>

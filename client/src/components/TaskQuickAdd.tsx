@@ -35,9 +35,11 @@ export default function TaskQuickAdd() {
 
     addTaskMutation.mutate({
       title: title.trim(),
-      due_at: dueAt || null,
+      due_at: dueAt || undefined,
       state: 'To Do',
       priority: 'Media',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
   };
 
