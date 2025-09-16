@@ -4,6 +4,10 @@ import { getDeals, updateDeal, deleteDeal } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
+import ScoreBadge from "./ScoreBadge";
+import PriorityBadge from "./PriorityBadge";
+import RiskBadge from "./RiskBadge";
+import ScoringTooltip from "./ScoringTooltip";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -22,19 +26,24 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { calculateDealScore, calculateRiskLevel } from "@/lib/scoring";
 import type { Deal } from "@/lib/types";
 
 interface DealsListProps {
   className?: string;
 }
 
-const STAGES = ["Prospección", "Negociación", "Propuesta", "Cierre"];
+const STAGES = ["Prospección", "Calificación", "Propuesta", "Negociación", "Cierre"];
 const STATUSES = ["Open", "Won", "Lost"];
+const PRIORITIES = ["Cold", "Warm", "Hot"];
+const RISK_LEVELS = ["Bajo", "Medio", "Alto"];
 
 export default function DealsList({ className }: DealsListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [riskFilter, setRiskFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
@@ -94,14 +103,16 @@ export default function DealsList({ className }: DealsListProps) {
     return deals.filter((deal) => {
       const matchesSearch = 
         deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.company.toLowerCase().includes(searchTerm.toLowerCase());
+        (deal.company && deal.company.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesStage = stageFilter === "all" || deal.stage === stageFilter;
       const matchesStatus = statusFilter === "all" || deal.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || deal.priority === priorityFilter;
+      const matchesRisk = riskFilter === "all" || deal.risk_level === riskFilter;
       
-      return matchesSearch && matchesStage && matchesStatus;
+      return matchesSearch && matchesStage && matchesStatus && matchesPriority && matchesRisk;
     });
-  }, [deals, searchTerm, stageFilter, statusFilter]);
+  }, [deals, searchTerm, stageFilter, statusFilter, priorityFilter, riskFilter]);
 
   const itemsPerPage = 5;
   const totalPages = Math.ceil(filteredDeals.length / itemsPerPage);
@@ -202,7 +213,7 @@ export default function DealsList({ className }: DealsListProps) {
               />
             </div>
             
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Select value={stageFilter} onValueChange={setStageFilter}>
                 <SelectTrigger className="w-full">
                   <Filter className="h-4 w-4 mr-2" />
@@ -231,6 +242,34 @@ export default function DealsList({ className }: DealsListProps) {
                   ))}
                 </SelectContent>
               </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las prioridades</SelectItem>
+                  {PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={riskFilter} onValueChange={setRiskFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Riesgo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los riesgos</SelectItem>
+                  {RISK_LEVELS.map((risk) => (
+                    <SelectItem key={risk} value={risk}>
+                      {risk}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -243,6 +282,9 @@ export default function DealsList({ className }: DealsListProps) {
                   <TableHead>Empresa</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead>Etapa</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Prioridad</TableHead>
+                  <TableHead>Riesgo</TableHead>
                   <TableHead>Prob.</TableHead>
                   <TableHead>Próximo paso</TableHead>
                   <TableHead>Estado</TableHead>
@@ -250,45 +292,85 @@ export default function DealsList({ className }: DealsListProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedDeals.map((deal) => (
-                  <TableRow key={deal.id}>
-                    <TableCell className="font-medium">{deal.title}</TableCell>
-                    <TableCell>{deal.company || "-"}</TableCell>
-                    <TableCell>{formatCurrency(deal.amount)}</TableCell>
-                    <TableCell>{deal.stage}</TableCell>
-                    <TableCell>{deal.probability}%</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {deal.next_step || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                          deal.status
-                        )}`}
-                      >
-                        {deal.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(deal)}
+                {paginatedDeals.map((deal) => {
+                  // Calcular scoring en tiempo real si no existe
+                  const dealScore = deal.score || 0;
+                  const dealPriority = deal.priority || 'Cold';
+                  const dealRisk = deal.risk_level || 'Bajo';
+                  
+                  // Si no tiene score calculado, calcularlo
+                  const scoringResult = dealScore === 0 ? calculateDealScore(deal) : null;
+                  const finalScore = scoringResult ? scoringResult.score : dealScore;
+                  const finalPriority = scoringResult ? scoringResult.priority : dealPriority;
+                  const finalRisk = dealRisk === 'Bajo' ? calculateRiskLevel(deal) : dealRisk;
+
+                  return (
+                    <TableRow key={deal.id}>
+                      <TableCell className="font-medium">{deal.title}</TableCell>
+                      <TableCell>{deal.company || "-"}</TableCell>
+                      <TableCell>{formatCurrency(deal.amount)}</TableCell>
+                      <TableCell>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                          {deal.stage}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {scoringResult ? (
+                          <ScoringTooltip scoringResult={scoringResult}>
+                            <ScoreBadge 
+                              score={finalScore} 
+                              priority={finalPriority} 
+                              size="sm" 
+                            />
+                          </ScoringTooltip>
+                        ) : (
+                          <ScoreBadge 
+                            score={finalScore} 
+                            priority={finalPriority} 
+                            size="sm" 
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <PriorityBadge priority={finalPriority} size="sm" />
+                      </TableCell>
+                      <TableCell>
+                        <RiskBadge riskLevel={finalRisk} size="sm" />
+                      </TableCell>
+                      <TableCell>{deal.probability}%</TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {deal.next_step || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            deal.status
+                          )}`}
                         >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(deal)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {deal.status}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(deal)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(deal)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

@@ -492,9 +492,14 @@ export async function seedDemo(): Promise<void> {
         15,
       ).toISOString(),
       next_step: "Firmar contrato",
-      status: "Open", // respeta el CHECK ('Open','Won','Lost')
+      status: "Open",
+      score: 0, // Se calculará automáticamente
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: now.toISOString(),
+      inactivity_days: 0,
       updated_at: now.toISOString(),
-    } as unknown as Deal,
+    } as Deal,
     {
       id: generateId(),
       title: "Implementación ERP - InnovaCorp",
@@ -505,8 +510,13 @@ export async function seedDemo(): Promise<void> {
       target_close_date: pastDate.toISOString(),
       next_step: null,
       status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 días atrás
+      inactivity_days: 5,
       updated_at: now.toISOString(),
-    } as unknown as Deal,
+    } as Deal,
     {
       id: generateId(),
       title: "Consultoría Digital - RetailMax",
@@ -515,16 +525,21 @@ export async function seedDemo(): Promise<void> {
       stage: "Negociación",
       probability: 85,
       target_close_date: pastDate.toISOString(),
-      next_step: null,
+      next_step: "Reunión de seguimiento",
       status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 días atrás
+      inactivity_days: 2,
       updated_at: now.toISOString(),
-    } as unknown as Deal,
+    } as Deal,
     {
       id: generateId(),
       title: "Sistema de Inventario",
       company: "TechStart Ltd.",
       amount: 15000,
-      stage: "Cerrado",
+      stage: "Cierre",
       probability: 100,
       target_close_date: new Date(
         now.getFullYear(),
@@ -533,8 +548,30 @@ export async function seedDemo(): Promise<void> {
       ).toISOString(),
       next_step: "Implementación",
       status: "Won",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
+      inactivity_days: 0,
       updated_at: now.toISOString(),
-    } as unknown as Deal,
+    } as Deal,
+    {
+      id: generateId(),
+      title: "Proyecto de Transformación Digital",
+      company: "MegaCorp Industries",
+      amount: 120000,
+      stage: "Calificación",
+      probability: 60,
+      target_close_date: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días en el futuro
+      next_step: "Presentación ejecutiva",
+      status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: now.toISOString(), // Hoy
+      inactivity_days: 0,
+      updated_at: now.toISOString(),
+    } as Deal,
   ];
 
   const demoContacts: Contact[] = [
@@ -543,6 +580,49 @@ export async function seedDemo(): Promise<void> {
       name: "Juan Pérez",
       email: "juan.perez@dataflow.com",
       company: "DataFlow Systems",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: now.toISOString(),
+      inserted_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "María García",
+      email: "maria.garcia@innovacorp.com",
+      company: "InnovaCorp Solutions",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 días atrás
+      inserted_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "Carlos López",
+      email: "carlos.lopez@retailmax.com",
+      company: "RetailMax Inc.",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
+      inserted_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "Ana Martínez",
+      email: "ana.martinez@techstart.com",
+      company: "TechStart Ltd.",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 1 semana atrás
+      inserted_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "Roberto Silva",
+      email: "roberto.silva@megacorp.com",
+      company: "MegaCorp Industries",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: now.toISOString(), // Hoy
       inserted_at: now.toISOString(),
     } as Contact,
   ];
