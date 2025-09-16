@@ -69,8 +69,8 @@ export default function ContactSelector({
     
     return contacts.filter((contact) =>
       contact.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-      contact.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-      (contact.company && contact.company.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
+      (contact.email && contact.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase())) ||
+      (contact.company && typeof contact.company === 'string' && contact.company.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
     );
   }, [contacts, debouncedSearchQuery]);
 
@@ -128,7 +128,11 @@ export default function ContactSelector({
     createContactMutation.mutate({
       name: newContact.name.trim(),
       email: newContact.email.trim(),
-      company: newContact.company.trim() || null,
+      company: newContact.company.trim() || undefined,
+      score: 0,
+      priority: "Cold" as const,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
   };
 

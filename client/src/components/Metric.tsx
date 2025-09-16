@@ -55,17 +55,19 @@ export default function Metric({ icon, value, label, color, change }: MetricProp
   const colors = getColorClasses(color);
 
   return (
-    <div className={`p-4 rounded-xl ${colors.bg}`} data-testid={`metric-${label.toLowerCase().replace(' ', '-')}`}>
-      <div className="flex items-center justify-between mb-2">
-        <i className={`${icon} ${colors.icon}`}></i>
+    <div className={`p-5 rounded-xl ${colors.bg} border border-border/20 transition-all duration-300 hover:shadow-md`} data-testid={`metric-${label.toLowerCase().replace(' ', '-')}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${colors.bg} ${colors.icon}`}>
+          <i className={`${icon} text-lg`}></i>
+        </div>
         {change && (
-          <span className={`text-xs font-medium ${colors.change}`}>
+          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${colors.change} ${colors.bg}`}>
             {change}
           </span>
         )}
       </div>
-      <p className={`text-2xl font-bold ${colors.value}`}>{value}</p>
-      <p className={`text-xs ${colors.label}`}>{label}</p>
+      <p className={`text-3xl font-bold ${colors.value} mb-1`}>{value}</p>
+      <p className={`text-sm font-medium ${colors.label}`}>{label}</p>
     </div>
   );
 }

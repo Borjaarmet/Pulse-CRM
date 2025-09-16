@@ -5,10 +5,11 @@ import type { Deal } from "@/lib/types";
 import { useEffect, useState } from "react";
 
 interface StalledDealsCardProps {
+  deals?: Deal[];
   isLoading?: boolean;
 }
 
-export default function StalledDealsCard({ isLoading: externalLoading }: StalledDealsCardProps) {
+export default function StalledDealsCard({ deals, isLoading: externalLoading }: StalledDealsCardProps) {
   const [stalledDeals, setStalledDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getContacts, updateContact, deleteContact } from "@/lib/db";
+import { getContacts, updateContact, deleteContact, getDeals } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
+import ScoreBadge from "./ScoreBadge";
+import PriorityBadge from "./PriorityBadge";
+import ScoringTooltip from "./ScoringTooltip";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import {
   Table,
   TableBody,
@@ -20,15 +24,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Edit, Trash2, Search } from "lucide-react";
-import type { Contact } from "@/lib/types";
+import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { calculateContactScore } from "@/lib/scoring";
+import type { Contact, Deal } from "@/lib/types";
 
 interface ContactsListProps {
   className?: string;
 }
 
+const PRIORITIES = ["Cold", "Warm", "Hot"];
+
 export default function ContactsList({ className }: ContactsListProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
@@ -41,6 +49,11 @@ export default function ContactsList({ className }: ContactsListProps) {
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ["contacts"],
     queryFn: getContacts,
+  });
+
+  const { data: deals = [] } = useQuery({
+    queryKey: ["deals"],
+    queryFn: getDeals,
   });
 
   const updateContactMutation = useMutation({
@@ -89,11 +102,13 @@ export default function ContactsList({ className }: ContactsListProps) {
       const matchesSearch = 
         (contact.name && contact.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (contact.email && contact.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (contact.company && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
+        (contact.company && typeof contact.company === 'string' && contact.company.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      return matchesSearch;
+      const matchesPriority = priorityFilter === "all" || contact.priority === priorityFilter;
+      
+      return matchesSearch && matchesPriority;
     });
-  }, [contacts, searchTerm]);
+  }, [contacts, searchTerm, priorityFilter]);
 
   const itemsPerPage = 5;
   const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
@@ -159,15 +174,34 @@ export default function ContactsList({ className }: ContactsListProps) {
             </span>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar contactos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          {/* Search and Filters */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contactos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las prioridades</SelectItem>
+                  {PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Table */}
@@ -178,35 +212,89 @@ export default function ContactsList({ className }: ContactsListProps) {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Empresa</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Prioridad</TableHead>
+                  <TableHead>Última Actividad</TableHead>
                   <TableHead className="w-20">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedContacts.map((contact) => (
-                  <TableRow key={contact.id}>
-                    <TableCell className="font-medium">{contact.name}</TableCell>
-                    <TableCell>{contact.email || "-"}</TableCell>
-                    <TableCell>{contact.company || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(contact)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(contact)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {paginatedContacts.map((contact) => {
+                  // Obtener deals asociados al contacto
+                  const contactDeals = deals.filter(deal => deal.contact_id === contact.id);
+                  
+                  // Calcular scoring del contacto
+                  const contactScore = contact.score || 0;
+                  const contactPriority = contact.priority || 'Cold';
+                  
+                  // Si no tiene score calculado, calcularlo
+                  const scoringResult = contactScore === 0 ? calculateContactScore(contact, contactDeals) : null;
+                  const finalScore = scoringResult ? scoringResult.score : contactScore;
+                  const finalPriority = scoringResult ? scoringResult.priority : contactPriority;
+
+                  // Formatear última actividad
+                  const formatLastActivity = (lastActivity?: string) => {
+                    if (!lastActivity) return "Nunca";
+                    const date = new Date(lastActivity);
+                    const now = new Date();
+                    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) return "Hoy";
+                    if (diffDays === 1) return "Ayer";
+                    if (diffDays < 7) return `${diffDays} días`;
+                    if (diffDays < 30) return `${Math.floor(diffDays / 7)} semanas`;
+                    return `${Math.floor(diffDays / 30)} meses`;
+                  };
+
+                  return (
+                    <TableRow key={contact.id}>
+                      <TableCell className="font-medium">{contact.name}</TableCell>
+                      <TableCell>{contact.email || "-"}</TableCell>
+                      <TableCell>{typeof contact.company === 'string' ? contact.company : "-"}</TableCell>
+                      <TableCell>
+                        {scoringResult ? (
+                          <ScoringTooltip scoringResult={scoringResult}>
+                            <ScoreBadge 
+                              score={finalScore} 
+                              priority={finalPriority} 
+                              size="sm" 
+                            />
+                          </ScoringTooltip>
+                        ) : (
+                          <ScoreBadge 
+                            score={finalScore} 
+                            priority={finalPriority} 
+                            size="sm" 
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <PriorityBadge priority={finalPriority} size="sm" />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatLastActivity(contact.last_activity)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(contact)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(contact)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -283,7 +371,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                 </label>
                 <Input
                   name="company"
-                  defaultValue={editingContact.company || ""}
+                  defaultValue={typeof editingContact.company === 'string' ? editingContact.company : ""}
                 />
               </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDeal, getContacts } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ interface DealModalProps {
   open: boolean;
   onClose: () => void;
   onCreated?: (deal: Deal) => void;
+  deal?: Deal; // Optional deal for editing
   contacts?: Contact[];
 }
 
@@ -22,6 +23,7 @@ export default function DealModal({
   open, 
   onClose, 
   onCreated,
+  deal,
   contacts: propContacts 
 }: DealModalProps) {
   const [title, setTitle] = useState("");
@@ -46,22 +48,44 @@ export default function DealModal({
 
   const availableContacts = propContacts || contacts;
 
+  // Populate form when editing a deal
+  useEffect(() => {
+    if (deal && open) {
+      setTitle(deal.title || "");
+      setCompany(deal.company || "");
+      setAmount(deal.amount?.toString() || "");
+      setStage(deal.stage || "Prospección");
+      setProbability(deal.probability?.toString() || "0");
+      setTargetClose(deal.target_close_date || "");
+      setNextStep(deal.next_step || "");
+      setContactId(deal.contact_id || "");
+    } else if (open) {
+      // Reset form when creating new deal
+      resetForm();
+    }
+  }, [deal, open]);
+
   const addDealMutation = useMutation({
     mutationFn: addDeal,
-    onSuccess: (deal) => {
+    onSuccess: (newDeal) => {
       queryClient.invalidateQueries({ queryKey: ['deals'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      // Invalidate dashboard queries
+      queryClient.invalidateQueries({ queryKey: ['hotDeal'] });
+      queryClient.invalidateQueries({ queryKey: ['stalledDeals'] });
+      queryClient.invalidateQueries({ queryKey: ['quickMetrics'] });
       resetForm();
       onClose();
-      onCreated?.(deal);
+      onCreated?.(newDeal);
       toast({
-        title: "Deal creado",
-        description: "El deal se ha creado exitosamente",
+        title: deal ? "Deal actualizado" : "Deal creado",
+        description: deal ? "El deal se ha actualizado exitosamente" : "El deal se ha creado exitosamente",
       });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "No se pudo crear el deal",
+        description: deal ? "No se pudo actualizar el deal" : "No se pudo crear el deal",
         variant: "destructive",
       });
     },
@@ -109,20 +133,24 @@ export default function DealModal({
       return;
     }
 
-    const amountValue = amount ? Number(amount) : null;
+    const amountValue = amount ? Number(amount) : undefined;
     const probabilityValue = Math.max(0, Math.min(100, Number(probability) || 0));
 
     addDealMutation.mutate({
       title: title.trim(),
-      company: company.trim() || null,
+      company: company.trim() || undefined,
       amount: amountValue,
       stage,
       probability: probabilityValue,
-      target_close_date: targetClose || null,
-      next_step: nextStep.trim() || null,
-      contact_id: contactId || null,
+      target_close_date: targetClose || undefined,
+      next_step: nextStep.trim() || undefined,
+      contact_id: contactId || undefined,
       status: 'Open',
-      risk: 'Bajo',
+      score: 0,
+      priority: 'Cold' as const,
+      risk_level: 'Bajo' as const,
+      inactivity_days: 0,
+      created_at: new Date().toISOString(),
     });
   };
 
@@ -130,7 +158,7 @@ export default function DealModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Nuevo Deal</DialogTitle>
+          <DialogTitle>{deal ? "Editar Deal" : "Nuevo Deal"}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -250,19 +278,12 @@ export default function DealModal({
             <label className="text-sm font-medium text-card-foreground block mb-2">
               Contacto
             </label>
-            <select
+            <ContactSelector
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-              data-testid="select-deal-contact"
-            >
-              <option value="">Seleccionar contacto (opcional)</option>
-              {availableContacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name} {contact.company ? `- ${contact.company}` : ''}
-                </option>
-              ))}
-            </select>
+              onValueChange={setContactId}
+              placeholder="Seleccionar contacto (opcional)"
+              className="w-full"
+            />
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -280,7 +301,10 @@ export default function DealModal({
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-all disabled:opacity-50"
               data-testid="button-deal-submit"
             >
-              {addDealMutation.isPending ? "Creando..." : "Crear Deal"}
+              {addDealMutation.isPending 
+                ? (deal ? "Actualizando..." : "Creando...") 
+                : (deal ? "Actualizar Deal" : "Crear Deal")
+              }
             </button>
           </div>
         </form>
