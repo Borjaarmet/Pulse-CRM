@@ -129,7 +129,7 @@ export default function Dashboard() {
             <div className="xl:col-span-2 space-y-6">
               <TasksCard tasks={tasks} isLoading={tasksLoading} />
               <StalledDealsCard deals={deals} isLoading={dealsLoading} />
-              <RecentActivityCard />
+             
             </div>
 
             {/* Right Column - 1/3 width */}
@@ -141,8 +141,14 @@ export default function Dashboard() {
                 deals={deals}
                 isLoading={tasksLoading || dealsLoading}
               />
+               <RecentActivityCard />
               
+     
+            </div>
+          </div>
               {/* Lazy loaded lists */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <DealsList />
               </Suspense>
@@ -154,8 +160,8 @@ export default function Dashboard() {
               <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <CompaniesList />
               </Suspense>
-            </div>
-          </div>
+              </div>
+
         </div>
       </main>
     </div>
