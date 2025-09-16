@@ -33,6 +33,27 @@ export default {
           DEFAULT: "var(--muted)",
           foreground: "var(--muted-foreground)",
         },
+        "muted-foreground": {
+          DEFAULT: "var(--muted-foreground)",
+        },
+        "card-foreground": {
+          DEFAULT: "var(--card-foreground)",
+        },
+        "popover-foreground": {
+          DEFAULT: "var(--popover-foreground)",
+        },
+        "primary-foreground": {
+          DEFAULT: "var(--primary-foreground)",
+        },
+        "secondary-foreground": {
+          DEFAULT: "var(--secondary-foreground)",
+        },
+        "accent-foreground": {
+          DEFAULT: "var(--accent-foreground)",
+        },
+        "destructive-foreground": {
+          DEFAULT: "var(--destructive-foreground)",
+        },
         accent: {
           DEFAULT: "var(--accent)",
           foreground: "var(--accent-foreground)",
