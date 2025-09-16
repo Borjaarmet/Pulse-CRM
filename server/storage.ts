@@ -8,6 +8,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  seedDemo(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -40,6 +41,12 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async seedDemo(): Promise<void> {
+    // This is a placeholder - in a real implementation, this would seed the database
+    // For now, we'll just log that seeding was requested
+    console.log("Demo data seeding requested");
   }
 }
 

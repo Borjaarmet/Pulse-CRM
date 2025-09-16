@@ -1,5 +1,6 @@
 // lib/db.ts
 import type { Task, Deal, Contact, TimelineEntry } from "./types";
+import { seedCompanies } from "./companies";
 
 /* =========================
    ENV Y MODO DE OPERACIÓN
@@ -479,6 +480,51 @@ export async function seedDemo(): Promise<void> {
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Task,
+    // Tareas adicionales para probar diferentes escenarios
+    {
+      id: generateId(),
+      description: "Seguimiento con Laura Martínez - TechCorp",
+      state: "Pending" as const,
+      priority: "Medium" as const,
+      due_at: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 días en el futuro
+      completed_at: null,
+      notes: "Reunión de seguimiento para propuesta de analytics",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Task,
+    {
+      id: generateId(),
+      description: "Revisar propuesta vencida - StartupXYZ",
+      state: "Overdue" as const,
+      priority: "High" as const,
+      due_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 días atrás (vencida)
+      completed_at: null,
+      notes: "URGENTE: Propuesta vencida hace 3 días",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Task,
+    {
+      id: generateId(),
+      description: "Preparar presentación ejecutiva - GlobalCorp",
+      state: "InProgress" as const,
+      priority: "High" as const,
+      due_at: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día en el futuro
+      completed_at: null,
+      notes: "Presentación para el comité ejecutivo",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Task,
+    {
+      id: generateId(),
+      description: "Llamada de reactivación - LocalBiz",
+      state: "Pending" as const,
+      priority: "Low" as const,
+      due_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días en el futuro
+      completed_at: null,
+      notes: "Contacto inactivo hace 30 días",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Task,
   ];
 
   const demoDeals: Deal[] = [
@@ -580,6 +626,79 @@ export async function seedDemo(): Promise<void> {
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Deal,
+    // Deals adicionales para probar diferentes escenarios
+    {
+      id: generateId(),
+      title: "Solución de Analytics Avanzada",
+      company: "TechCorp Analytics",
+      amount: 25000,
+      stage: "Prospección",
+      probability: 20,
+      target_close_date: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000).toISOString(), // 60 días en el futuro
+      next_step: "Primera reunión",
+      status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 días atrás
+      inactivity_days: 10,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Deal,
+    {
+      id: generateId(),
+      title: "Integración API - StartupXYZ",
+      company: "StartupXYZ",
+      amount: 8000,
+      stage: "Negociación",
+      probability: 60,
+      target_close_date: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 días atrás (vencido)
+      next_step: "Revisar propuesta",
+      status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Alto" as const,
+      last_activity: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 días atrás
+      inactivity_days: 15,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Deal,
+    {
+      id: generateId(),
+      title: "Consultoría Estratégica - GlobalCorp",
+      company: "GlobalCorp International",
+      amount: 150000,
+      stage: "Propuesta",
+      probability: 80,
+      target_close_date: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 días en el futuro
+      next_step: "Presentación ejecutiva",
+      status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Bajo" as const,
+      last_activity: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
+      inactivity_days: 1,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Deal,
+    {
+      id: generateId(),
+      title: "Sistema de Gestión - LocalBiz",
+      company: "LocalBiz S.L.",
+      amount: 12000,
+      stage: "Calificación",
+      probability: 40,
+      target_close_date: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días en el futuro
+      next_step: null, // Sin próximo paso - alto riesgo
+      status: "Open",
+      score: 0,
+      priority: "Cold" as const,
+      risk_level: "Alto" as const,
+      last_activity: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString(), // 20 días atrás
+      inactivity_days: 20,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Deal,
   ];
 
   const demoContacts: Contact[] = [
@@ -638,6 +757,51 @@ export async function seedDemo(): Promise<void> {
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
     } as Contact,
+    // Contactos adicionales para probar diferentes escenarios
+    {
+      id: generateId(),
+      name: "Laura Martínez",
+      email: "laura.martinez@techcorp.com",
+      company: "TechCorp Analytics",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 días atrás
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "David Chen",
+      email: "david.chen@startupxyz.com",
+      company: "StartupXYZ",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString(), // 20 días atrás
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "Sarah Johnson",
+      email: "sarah.johnson@globalcorp.com",
+      company: "GlobalCorp International",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: now.toISOString(), // Hoy
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Contact,
+    {
+      id: generateId(),
+      name: "Miguel Rodríguez",
+      email: "miguel.rodriguez@localbiz.com",
+      company: "LocalBiz S.L.",
+      score: 0,
+      priority: "Cold" as const,
+      last_activity: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días atrás
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+    } as Contact,
   ];
 
   if (IS_SUPABASE_MODE) {
@@ -654,6 +818,8 @@ export async function seedDemo(): Promise<void> {
           .from("contacts")
           .insert(demoContacts.map(({ id, created_at, updated_at, ...c }) => c)),
       ]);
+      // Seed companies
+      await seedCompanies();
     } catch (error) {
       console.error("Error seeding demo data:", error);
       throw new Error("Failed to seed demo data");
@@ -662,5 +828,7 @@ export async function seedDemo(): Promise<void> {
     demoData.tasks = demoTasks;
     demoData.deals = demoDeals;
     demoData.contacts = demoContacts;
+    // Seed companies for demo mode
+    await seedCompanies();
   }
 }

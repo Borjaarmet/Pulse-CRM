@@ -11,13 +11,13 @@ import type { Deal, Contact, ScoringResult, ScoringFactors, Priority, RiskLevel 
  * - Historial de interacciones
  */
 
-// Configuración de pesos para el scoring
+// Configuración de pesos para el scoring (optimizada)
 const SCORING_WEIGHTS = {
-  probability: 0.3,    // 30% - Probabilidad de cierre
+  probability: 0.35,   // 35% - Probabilidad de cierre (más peso)
   amount: 0.25,        // 25% - Valor monetario
-  activity: 0.2,       // 20% - Actividad reciente
-  stage: 0.15,         // 15% - Etapa del pipeline
-  timeInStage: 0.1,    // 10% - Tiempo en etapa actual
+  activity: 0.25,      // 25% - Actividad reciente (más peso)
+  stage: 0.10,         // 10% - Etapa del pipeline (menos peso)
+  timeInStage: 0.05,   // 5% - Tiempo en etapa actual (menos peso)
 } as const;
 
 // Configuración de etapas del pipeline (orden de importancia)
@@ -220,13 +220,13 @@ export function calculateRiskLevel(deal: Deal): RiskLevel {
 // Funciones auxiliares
 
 function normalizeAmount(amount: number): number {
-  // Normaliza el monto a una escala de 0-100
-  // Montos típicos: 0-10k = 0-30, 10k-50k = 30-60, 50k-100k = 60-80, 100k+ = 80-100
+  // Normaliza el monto a una escala de 0-100 (optimizada)
+  // Montos típicos: 0-5k = 0-20, 5k-25k = 20-50, 25k-75k = 50-75, 75k+ = 75-100
   if (amount === 0) return 0;
-  if (amount < 10000) return Math.min((amount / 10000) * 30, 30);
-  if (amount < 50000) return 30 + ((amount - 10000) / 40000) * 30;
-  if (amount < 100000) return 60 + ((amount - 50000) / 50000) * 20;
-  return Math.min(80 + ((amount - 100000) / 100000) * 20, 100);
+  if (amount < 5000) return Math.min((amount / 5000) * 20, 20);
+  if (amount < 25000) return 20 + ((amount - 5000) / 20000) * 30;
+  if (amount < 75000) return 50 + ((amount - 25000) / 50000) * 25;
+  return Math.min(75 + ((amount - 75000) / 75000) * 25, 100);
 }
 
 function calculateActivityScore(lastActivity: Date, now: Date): number {
