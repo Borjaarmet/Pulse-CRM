@@ -8,7 +8,7 @@ interface CardProps {
 export default function Card({ children, className }: CardProps) {
   return (
     <div className={cn(
-      "glass-card rounded-xl p-6",
+      "glass-card rounded-xl p-6 overflow-visible",
       className
     )}>
       {children}

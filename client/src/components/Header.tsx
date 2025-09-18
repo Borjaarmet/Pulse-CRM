@@ -28,8 +28,8 @@ function ModeBadge({ isDemo }: { isDemo: boolean }) {
 
 export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps) {
   return (
-    <header className="relative z-50 border-b border-white/10 sticky top-0 transition-all duration-300" style={{
-      background: 'rgba(255, 255, 255, 0.1)',
+    <header className="relative z-50 border-b border-white/10 top-0 transition-all duration-300" style={{
+      background: 'rgba(20, 118, 223, 0.1)',
       backdropFilter: 'blur(20px)',
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
     }}>
@@ -41,7 +41,7 @@ export default function Header({ isDemo, onInjectDemo, onRefresh }: HeaderProps)
               <span className="text-white text-sm">⚡</span>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-white tracking-tight">Pulse CRM</h1>
+              <h1 className="text-xl font-bold text-white tracking-tight">Pulse CRMMMM</h1>
               <span className="text-xs text-white/70 -mt-1">Dashboard POC</span>
             </div>
           </div>

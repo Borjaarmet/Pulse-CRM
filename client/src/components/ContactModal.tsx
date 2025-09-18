@@ -33,6 +33,7 @@ export default function ContactModal({
     mutationFn: addContact,
     onSuccess: (contact) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.companies });
       resetForm();
       onClose();
       onCreated?.(contact);

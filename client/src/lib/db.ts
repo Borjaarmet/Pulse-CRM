@@ -1,6 +1,6 @@
 // lib/db.ts
 import type { Task, Deal, Contact, TimelineEntry } from "./types";
-import { seedCompanies } from "./companies";
+import { seedCompanies, ensureCompanyByName } from "./companies";
 
 /* =========================
    ENV Y MODO DE OPERACIÓN
@@ -92,6 +92,12 @@ export async function addTask(
     inserted_at: new Date().toISOString(),
   };
   demoData.tasks.unshift(newTask);
+  logTimelineEntry({
+    type: "task_created",
+    description: `Nueva tarea: ${newTask.title}`,
+    entity_type: "task",
+    entity_id: newTask.id,
+  });
   return newTask;
 }
 
@@ -114,7 +120,68 @@ export async function markTaskDone(
   const idx = demoData.tasks.findIndex((t) => t.id === id);
   if (idx === -1) throw new Error("Task not found");
   demoData.tasks[idx].state = state;
+  logTimelineEntry({
+    type: state === "Done" ? "task_completed" : "task_reopened",
+    description: `${state === "Done" ? "Tarea completada" : "Tarea reactivada"}: ${demoData.tasks[idx].title}`,
+    entity_type: "task",
+    entity_id: id,
+  });
   return demoData.tasks[idx];
+}
+
+export async function updateTask(
+  id: string,
+  patch: Partial<Task>,
+): Promise<Task> {
+  const normalizedPatch = {
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("tasks")
+      .update(normalizedPatch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const idx = demoData.tasks.findIndex((task) => task.id === id);
+  if (idx === -1) throw new Error("Task not found");
+  demoData.tasks[idx] = { ...demoData.tasks[idx], ...normalizedPatch };
+  logTimelineEntry({
+    type: "task_updated",
+    description: `Tarea actualizada: ${demoData.tasks[idx].title}`,
+    entity_type: "task",
+    entity_id: id,
+  });
+  return demoData.tasks[idx];
+}
+
+export async function deleteTask(id: string): Promise<void> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    return;
+  }
+
+  const idx = demoData.tasks.findIndex((task) => task.id === id);
+  if (idx === -1) throw new Error("Task not found");
+  const [removed] = demoData.tasks.splice(idx, 1);
+  logTimelineEntry({
+    type: "task_deleted",
+    description: `Tarea eliminada: ${removed?.title ?? ""}`,
+    entity_type: "task",
+    entity_id: id,
+  });
 }
 
 /* ==============
@@ -269,11 +336,26 @@ export async function getContacts(): Promise<Contact[]> {
 export async function addContact(
   payload: Omit<Contact, "id" | "inserted_at">,
 ): Promise<Contact> {
+  let companyId = payload.company_id;
+  let companyName = payload.company?.trim() || undefined;
+
+  if (companyName) {
+    const companyRecord = await ensureCompanyByName(companyName);
+    companyId = companyRecord.id;
+    companyName = companyRecord.name;
+  }
+
+  const normalizedPayload = {
+    ...payload,
+    company: companyName,
+    company_id: companyId,
+  } as Omit<Contact, "id" | "inserted_at">;
+
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
     const { data, error } = await supabase
       .from("contacts")
-      .insert([payload])
+      .insert([normalizedPayload])
       .select()
       .single();
     if (error) throw error;
@@ -282,10 +364,17 @@ export async function addContact(
 
   const newContact = {
     id: generateId(),
-    ...payload,
+    ...normalizedPayload,
     inserted_at: new Date().toISOString(),
   };
   demoData.contacts.unshift(newContact);
+  logTimelineEntry({
+    type: "contact_created",
+    description: `Nuevo contacto: ${newContact.name}`,
+    entity_type: "contact",
+    entity_id: newContact.id,
+    metadata: companyId ? JSON.stringify({ company_id: companyId }) : undefined,
+  });
   return newContact;
 }
 
@@ -333,11 +422,27 @@ export async function deleteDeal(id: string): Promise<void> {
 }
 
 export async function updateContact(id: string, patch: Partial<Contact>): Promise<Contact> {
+  let normalizedPatch = { ...patch } as Partial<Contact>;
+
+  if (patch.company) {
+    const trimmed = patch.company.trim();
+    if (trimmed) {
+      const companyRecord = await ensureCompanyByName(trimmed);
+      normalizedPatch.company = companyRecord.name;
+      normalizedPatch.company_id = companyRecord.id;
+    } else {
+      normalizedPatch.company = undefined;
+      normalizedPatch.company_id = undefined;
+    }
+  }
+
+  normalizedPatch.updated_at = new Date().toISOString();
+
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
     const { data, error } = await supabase
       .from("contacts")
-      .update(patch)
+      .update(normalizedPatch)
       .eq("id", id)
       .select()
       .single();
@@ -347,7 +452,13 @@ export async function updateContact(id: string, patch: Partial<Contact>): Promis
 
   const idx = demoData.contacts.findIndex((c) => c.id === id);
   if (idx === -1) throw new Error("Contact not found");
-  demoData.contacts[idx] = { ...demoData.contacts[idx], ...patch };
+  demoData.contacts[idx] = { ...demoData.contacts[idx], ...normalizedPatch };
+  logTimelineEntry({
+    type: "contact_updated",
+    description: `Contacto actualizado: ${demoData.contacts[idx].name}`,
+    entity_type: "contact",
+    entity_id: id,
+  });
   return demoData.contacts[idx];
 }
 
@@ -364,7 +475,13 @@ export async function deleteContact(id: string): Promise<void> {
 
   const idx = demoData.contacts.findIndex((c) => c.id === id);
   if (idx === -1) throw new Error("Contact not found");
-  demoData.contacts.splice(idx, 1);
+  const [removed] = demoData.contacts.splice(idx, 1);
+  logTimelineEntry({
+    type: "contact_deleted",
+    description: `Contacto eliminado: ${removed?.name ?? ""}`,
+    entity_type: "contact",
+    entity_id: id,
+  });
 }
 
 /* ==============
@@ -421,6 +538,59 @@ export function subscribeToChanges(callback: () => void): () => void {
   })();
 
   return () => teardown();
+}
+
+function logTimelineEntry(
+  entry: Omit<TimelineEntry, "id" | "created_at"> & { created_at?: string },
+) {
+  const payload = {
+    id: generateId(),
+    ...entry,
+    created_at: entry.created_at ?? new Date().toISOString(),
+  } as TimelineEntry;
+
+  if (IS_SUPABASE_MODE) {
+    ensureSupabase()
+      .then(() =>
+        supabase
+          .from("timeline_entries")
+          .insert([
+            {
+              type: payload.type,
+              description: payload.description,
+              entity_type: payload.entity_type,
+              entity_id: payload.entity_id,
+              user_id: payload.user_id,
+              metadata: payload.metadata,
+              created_at: payload.created_at,
+            },
+          ]),
+      )
+      .catch((error: unknown) => {
+        console.error("Failed to log timeline entry", error);
+      });
+    return;
+  }
+
+  demoData.timeline.unshift(payload);
+}
+
+export async function getRecentActivity(limit = 10): Promise<TimelineEntry[]> {
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("timeline_entries")
+      .select("*")
+      .order("created_at", { descending: true })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  return demoData.timeline
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit);
 }
 
 /* =====================

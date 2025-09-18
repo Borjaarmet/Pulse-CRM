@@ -6,6 +6,7 @@ export const QUERY_KEYS = {
   stalledDeals: ["stalledDeals"] as const,
   quickMetrics: ["quickMetrics"] as const,
   companies: ["companies"] as const,
+  timeline: ["timeline"] as const,
 } as const;
 
 export type QueryKey = typeof QUERY_KEYS[keyof typeof QUERY_KEYS];

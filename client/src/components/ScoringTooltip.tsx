@@ -110,7 +110,7 @@ export default function ScoringTooltip({ type, count, children }: ScoringTooltip
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-sm p-4 bg-popover border shadow-lg">
+        <TooltipContent side="bottom" className="z-50 max-w-sm p-4 bg-teal-700 border shadow-lg">
           <div className="space-y-3">
             {/* Header */}
             <div className="flex items-center gap-2">

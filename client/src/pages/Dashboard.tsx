@@ -5,9 +5,7 @@ import TasksCard from "@/components/TasksCard";
 import HotDealCard from "@/components/HotDealCard";
 import StalledDealsCard from "@/components/StalledDealsCard";
 import RecentActivityCard from "@/components/RecentActivityCard";
-import ShortcutsCard from "@/components/ShortcutsCard";
 import QuickMetricsCard from "@/components/QuickMetricsCard";
-import ScoringDashboard from "@/components/ScoringDashboard";
 import Card from "@/components/Card";
 import Skeleton from "@/components/Skeleton";
 import { seedDemo, subscribeToChanges } from "@/lib/db";
@@ -15,6 +13,9 @@ import { QUERY_KEYS } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
 import { useTasksQuery, useDealsQuery, useContactsQuery } from "@/hooks/useCrmQueries";
 import type { Task, Deal, Contact } from "@/lib/types";
+import DealModal from "@/components/DealModal";
+import ContactModal from "@/components/ContactModal";
+import OverviewCard from "@/components/OverviewCard";
 
 // Lazy load the list components
 const DealsList = lazy(() => import("@/components/DealsList"));
@@ -33,6 +34,9 @@ export default function Dashboard() {
   const tasks = tasksData ?? ([] as Task[]);
   const deals = dealsData ?? ([] as Deal[]);
   const contacts = contactsData ?? ([] as Contact[]);
+
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   useEffect(() => {
     // Check if we're in demo mode
@@ -92,13 +96,42 @@ export default function Dashboard() {
   const wonDeals = deals.filter((deal) => deal.status === "Won").length;
   const lostDeals = deals.filter((deal) => deal.status === "Lost").length;
   const activeTasks = tasks.filter((task) => task.state !== "Done").length;
-
-  const hotDeals = deals.filter((deal) => deal.priority === "Hot").length;
-  const warmDeals = deals.filter((deal) => deal.priority === "Warm").length;
-  const totalContacts = contacts.length;
+  const activeContactsCount = contacts.filter((contact) => {
+    if (!contact.last_activity) return false;
+    const last = new Date(contact.last_activity);
+    const diffDays = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 14;
+  }).length;
 
   const displayValue = (value: number, isLoading: boolean) =>
     isLoading ? "—" : value;
+
+  const renderDashboardSummary = () => (
+    <>
+      <OverviewCard
+        deals={deals}
+        tasks={tasks}
+        contactsActivos={contactsLoading ? 0 : activeContactsCount}
+        isDealsLoading={dealsLoading}
+        isTasksLoading={tasksLoading}
+      />
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <HotDealCard deals={deals} isLoading={dealsLoading} />
+        <QuickMetricsCard
+          tasks={tasks}
+          deals={deals}
+          isLoading={tasksLoading || dealsLoading}
+        />
+      </section>
+
+      <section className="">
+        <StalledDealsCard deals={deals} isLoading={dealsLoading} />
+      </section>
+      <section className="">
+        <RecentActivityCard />
+      </section>
+    </>
+  );
 
   return (
     <DashboardLayout
@@ -107,141 +140,91 @@ export default function Dashboard() {
       onRefresh={handleRefresh}
       initialSection="Dashboard"
     >
-      <section id="dashboard-overview" className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2 bg-white/5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-white/60">Buenos días 👋</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">
-                Tienes {displayValue(hotDeals, dealsLoading)} deals calientes y {displayValue(activeTasks, tasksLoading)} tareas activas
-              </h2>
-              <p className="mt-1 text-sm text-white/50">
-                La IA recomienda priorizar los deals con mayor riesgo esta mañana.
-              </p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-right">
-              <p className="text-xs uppercase tracking-wide text-white/60">Pipeline activo</p>
-              <p className="text-3xl font-bold text-white">€0</p>
-              <p className="text-xs text-white/40">Actualizado hace un momento</p>
-            </div>
-          </div>
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs text-white/50">Deals Hot</p>
-              <p className="text-2xl font-semibold text-white">{displayValue(hotDeals, dealsLoading)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs text-white/50">Deals Warm</p>
-              <p className="text-2xl font-semibold text-white">{displayValue(warmDeals, dealsLoading)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs text-white/50">Contactos activos</p>
-              <p className="text-2xl font-semibold text-white">{displayValue(totalContacts, contactsLoading)}</p>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3">
-              <p className="text-xs text-white/50">Racha activa</p>
-              <p className="text-2xl font-semibold text-white">7 días</p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-white/5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Próximas acciones</h3>
-            <span className="rounded-full border border-purple-400/40 bg-purple-500/10 px-2 py-1 text-xs font-medium text-purple-200">
-              IA Sugerido
-            </span>
-          </div>
-          <p className="mt-4 text-sm text-white/60">
-            ¡Excelente! No hay deals en riesgo crítico. Mantén el ritmo con los deals warm para elevar su score.
-          </p>
-        </Card>
-      </section>
-
-      <section id="next-actions" className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="bg-white/5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Tareas de hoy</h3>
-            <span className="text-sm text-white/50">{displayValue(activeTasks, tasksLoading)}</span>
-          </div>
-          <p className="mt-4 text-sm text-white/60">
-            {tasksLoading
-              ? "Cargando tareas..."
-              : activeTasks === 0
-                ? "No hay tareas pendientes para hoy"
-                : "Prioriza las tareas con fecha de vencimiento próxima."}
-          </p>
-          <button className="mt-6 text-sm font-medium text-blue-200 hover:text-blue-100">
-            Ver lista completa →
-          </button>
-        </Card>
-
-        <Card className="bg-white/5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Pipeline este mes</h3>
-            <span className="text-sm text-blue-200">Ver todo →</span>
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-4 text-white">
-            <div>
-              <p className="text-xs text-white/50">Abiertos</p>
-              <p className="text-2xl font-semibold">{displayValue(openDeals, dealsLoading)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-white/50">Ganados</p>
-              <p className="text-2xl font-semibold">{displayValue(wonDeals, dealsLoading)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-white/50">Perdidos</p>
-              <p className="text-2xl font-semibold">{displayValue(lostDeals, dealsLoading)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-white/50">Valor total</p>
-              <p className="text-2xl font-semibold">€0K</p>
-            </div>
-          </div>
-        </Card>
-
-        <ShortcutsCard />
-      </section>
-
-      <section id="tasks-section" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TasksCard tasks={tasks} isLoading={tasksLoading} />
-        <HotDealCard deals={deals} isLoading={dealsLoading} />
-      </section>
-
-      <section id="pipeline-section" className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <StalledDealsCard deals={deals} isLoading={dealsLoading} />
-        <QuickMetricsCard
-          tasks={tasks}
-          deals={deals}
-          isLoading={tasksLoading || dealsLoading}
-        />
-        <RecentActivityCard />
-      </section>
-
-      <section className="grid grid-cols-1 gap-6">
-        <ScoringDashboard />
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div id="deals-section">
-          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-            <DealsList />
-          </Suspense>
-        </div>
-
-        <div id="contacts-section">
-          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-            <ContactsList />
-          </Suspense>
-        </div>
-
-        <div id="companies-section">
-          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-            <CompaniesList />
-          </Suspense>
-        </div>
-      </section>
+      {(activeSection) => {
+        switch (activeSection) {
+          case "Dashboard":
+            return renderDashboardSummary();
+          case "Deals":
+            return (
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white">Pipeline completo</h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsDealModalOpen(true)}
+                    className="inline-flex items-center rounded-lg bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 transition hover:bg-blue-500/20"
+                  >
+                    + Nuevo Deal
+                  </button>
+                </div>
+                <HotDealCard deals={deals} isLoading={dealsLoading} />
+                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                  <DealsList />
+                </Suspense>
+                <DealModal
+                  open={isDealModalOpen}
+                  onClose={() => setIsDealModalOpen(false)}
+                  contacts={contacts}
+                />
+              </section>
+            );
+          case "Contactos":
+            return (
+              <section className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-white">Contactos</h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsContactModalOpen(true)}
+                    className="inline-flex items-center rounded-lg bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 transition hover:bg-blue-500/20"
+                  >
+                    + Nuevo Contacto
+                  </button>
+                </div>
+                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                  <ContactsList />
+                </Suspense>
+                <ContactModal
+                  open={isContactModalOpen}
+                  onClose={() => setIsContactModalOpen(false)}
+                />
+              </section>
+            );
+          case "Empresas":
+            return (
+              <section className="space-y-6">
+                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                  <CompaniesList />
+                </Suspense>
+              </section>
+            );
+          case "Tareas":
+            return (
+              <section className="space-y-6">
+                <TasksCard tasks={tasks} isLoading={tasksLoading} />
+              </section>
+            );
+          case "Métricas":
+            return (
+              <section className="space-y-6">
+                <QuickMetricsCard
+                  tasks={tasks}
+                  deals={deals}
+                  isLoading={tasksLoading || dealsLoading}
+                />
+              </section>
+            );
+          default:
+            return (
+              <Card className="bg-white/5">
+                <h3 className="text-lg font-semibold text-white">En desarrollo</h3>
+                <p className="mt-2 text-sm text-white/60">
+                  Esta sección estará disponible próximamente.
+                </p>
+              </Card>
+            );
+        }
+      }}
     </DashboardLayout>
   );
 }

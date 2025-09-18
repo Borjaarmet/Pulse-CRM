@@ -24,10 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Search, Filter, Plus } from "lucide-react";
 import { calculateContactScore } from "@/lib/scoring";
 import type { Contact, Deal } from "@/lib/types";
 import { useContactsQuery, useDealsQuery } from "@/hooks/useCrmQueries";
+import ContactModal from "./ContactModal";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 
 interface ContactsListProps {
   className?: string;
@@ -43,6 +45,7 @@ export default function ContactsList({ className }: ContactsListProps) {
   const [deletingContact, setDeletingContact] = useState<Contact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -57,7 +60,8 @@ export default function ContactsList({ className }: ContactsListProps) {
     mutationFn: ({ id, ...patch }: { id: string } & Partial<Contact>) =>
       updateContact(id, patch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.companies });
       setIsEditModalOpen(false);
       setEditingContact(null);
       toast({
@@ -77,7 +81,8 @@ export default function ContactsList({ className }: ContactsListProps) {
   const deleteContactMutation = useMutation({
     mutationFn: deleteContact,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.companies });
       setIsDeleteModalOpen(false);
       setDeletingContact(null);
       toast({
@@ -166,9 +171,15 @@ export default function ContactsList({ className }: ContactsListProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Contactos</h3>
-            <span className="text-sm text-muted-foreground">
-              {filteredContacts.length} contactos
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {filteredContacts.length} contactos
+              </span>
+              <Button size="sm" onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="mr-1 h-4 w-4" />
+                Nuevo
+              </Button>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -418,6 +429,11 @@ export default function ContactsList({ className }: ContactsListProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      <ContactModal
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
     </>
   );
 }

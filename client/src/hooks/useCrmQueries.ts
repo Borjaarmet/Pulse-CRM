@@ -6,9 +6,10 @@ import {
   getHotDeal,
   getStalledDeals,
   getQuickMetrics,
+  getRecentActivity,
 } from "@/lib/db";
 import { QUERY_KEYS } from "@/lib/queryKeys";
-import type { Task, Deal, Contact } from "@/lib/types";
+import type { Task, Deal, Contact, TimelineEntry } from "@/lib/types";
 
 export interface QuickMetrics {
   open: number;
@@ -67,6 +68,17 @@ export function useQuickMetricsQuery(config?: QueryConfig<QuickMetrics, typeof Q
   return useQuery<QuickMetrics, unknown, QuickMetrics, typeof QUERY_KEYS.quickMetrics>({
     queryKey: QUERY_KEYS.quickMetrics,
     queryFn: getQuickMetrics,
+    ...config,
+  });
+}
+
+export function useRecentActivityQuery(
+  config?: QueryConfig<TimelineEntry[], typeof QUERY_KEYS.timeline>,
+) {
+  return useQuery<TimelineEntry[], unknown, TimelineEntry[], typeof QUERY_KEYS.timeline>({
+    queryKey: QUERY_KEYS.timeline,
+    queryFn: () => getRecentActivity(8),
+    staleTime: 30_000,
     ...config,
   });
 }

@@ -90,6 +90,71 @@ export async function addCompany(
   return newCompany;
 }
 
+export async function ensureCompanyByName(name: string): Promise<Company> {
+  const trimmed = name?.trim();
+  if (!trimmed) {
+    throw new Error("El nombre de la empresa es obligatorio");
+  }
+
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("name", trimmed)
+      .limit(1);
+
+    if (fetchError) throw fetchError;
+    if (existing && existing.length > 0) {
+      return existing[0];
+    }
+
+    const now = new Date().toISOString();
+    const insertPayload = {
+      name: trimmed,
+      score: 0,
+      priority: "Cold",
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("companies")
+      .insert([insertPayload])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    return inserted;
+  }
+
+  const existing = demoCompanies.find(
+    (company) => company.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+
+  if (existing) return existing;
+
+  const now = new Date().toISOString();
+  const newCompany: Company = {
+    id: generateId(),
+    name: trimmed,
+    industry: undefined,
+    size: undefined,
+    revenue_estimate: undefined,
+    location: undefined,
+    website: undefined,
+    description: undefined,
+    score: 0,
+    priority: "Cold" as const,
+    created_at: now,
+    updated_at: now,
+  };
+
+  demoCompanies.unshift(newCompany);
+  return newCompany;
+}
+
 export async function updateCompany(id: string, patch: Partial<Company>): Promise<Company> {
   const normalizedPatch = {
     ...patch,

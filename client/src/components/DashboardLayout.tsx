@@ -12,27 +12,27 @@ import {
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
-  children: ReactNode;
+  children: (active: string) => ReactNode;
   isDemo: boolean;
   onInjectDemo: () => void;
   onRefresh: () => void;
   initialSection?: string;
+  onSectionChange?: (section: string) => void;
 }
 
 type NavItem = {
   label: string;
   icon: ComponentType<{ className?: string }>;
-  targetId?: string;
   disabled?: boolean;
 };
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, targetId: "dashboard-overview" },
-  { label: "Contactos", icon: Users2, targetId: "contacts-section" },
-  { label: "Pipeline", icon: Briefcase, targetId: "pipeline-section" },
-  { label: "Tareas", icon: ClipboardList, targetId: "tasks-section" },
-  { label: "Empresas", icon: Building2, targetId: "companies-section" },
-  { label: "Métricas", icon: LineChart, targetId: "metrics-section" },
+  { label: "Dashboard", icon: LayoutDashboard },
+  { label: "Deals", icon: Briefcase },
+  { label: "Contactos", icon: Users2 },
+  { label: "Empresas", icon: Building2 },
+  { label: "Tareas", icon: ClipboardList },
+  { label: "Métricas", icon: LineChart },
   { label: "Equipo", icon: ShieldCheck, disabled: true },
 ];
 
@@ -46,14 +46,14 @@ function DashboardSidebar({
   onSelect: (item: NavItem) => void;
 }) {
   return (
-    <aside className="hidden lg:flex lg:flex-col w-64 bg-[#0F1624] border-r border-white/5 text-sm">
+    <aside className="hidden lg:flex lg:flex-col w-64 bg-[#1c418c] border-r border-white/5 text-sm">
       <div className="px-6 py-6 border-b border-white/10">
         <div className="font-semibold text-white text-lg">MindLab</div>
         <div className="text-xs text-white/50">Pulse CRM</div>
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
-        {items.map(({ label, icon: Icon, targetId, disabled }) => {
+        {items.map(({ label, icon: Icon, disabled }) => {
           const isActive = active === label;
           return (
             <button
@@ -69,10 +69,7 @@ function DashboardSidebar({
               )}
               onClick={() => {
                 if (disabled) return;
-                onSelect({ label, icon: Icon, targetId });
-                if (!targetId) return;
-                const section = document.getElementById(targetId);
-                section?.scrollIntoView({ behavior: "smooth", block: "start" });
+                onSelect({ label, icon: Icon });
               }}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -99,13 +96,14 @@ function DashboardTopbar({
   isDemo,
   onInjectDemo,
   onRefresh,
-}: Pick<DashboardLayoutProps, "isDemo" | "onInjectDemo" | "onRefresh">) {
+  active,
+}: Pick<DashboardLayoutProps, "isDemo" | "onInjectDemo" | "onRefresh"> & { active: string }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-white/5 bg-[#0B0F1A]/80 px-4 py-4 backdrop-blur">
+    <header className="flex items-center justify-between gap-4 border-b border-white/5 bg-transparent px-4 py-4 backdrop-blur">
       <div className="flex items-center gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Dashboard</h1>
-          <p className="text-xs text-white/50">AI Activo</p>
+          <h1 className="text-xl font-semibold text-white">{active}</h1>
+          <p className="text-xs text-white/60">AI Activo</p>
         </div>
         <span className="hidden sm:inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
           ⚡ IA Activa
@@ -113,18 +111,6 @@ function DashboardTopbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center rounded-lg bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 transition hover:bg-blue-500/20"
-        >
-          + Deal
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10"
-        >
-          + Tarea
-        </button>
         <button
           type="button"
           onClick={onRefresh}
@@ -156,6 +142,7 @@ export default function DashboardLayout({
   onInjectDemo,
   onRefresh,
   initialSection = "Dashboard",
+  onSectionChange,
 }: DashboardLayoutProps) {
   const navItems = useMemo(() => DEFAULT_NAV_ITEMS, []);
   const [active, setActive] = useState(initialSection);
@@ -163,15 +150,16 @@ export default function DashboardLayout({
   const handleSelect = useCallback(
     (item: NavItem) => {
       setActive(item.label);
+      onSectionChange?.(item.label);
     },
-    [],
+    [onSectionChange],
   );
 
   return (
     <div className="relative min-h-screen overflow-hidden text-white">
       {/* Background gradient layers */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0f1f3a] via-[#050912] to-black" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#4f74b4] via-[#1b2f5f] to-black" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.18),transparent_55%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(37,99,235,0.18),transparent_60%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_80%,rgba(14,116,144,0.15),transparent_65%)]" />
@@ -189,10 +177,11 @@ export default function DashboardLayout({
             isDemo={isDemo}
             onInjectDemo={onInjectDemo}
             onRefresh={onRefresh}
+            active={active}
           />
           <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto w-full max-w-6xl space-y-6">
-              {children}
+              {children(active)}
             </div>
           </main>
         </div>
