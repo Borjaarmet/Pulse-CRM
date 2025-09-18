@@ -16,6 +16,7 @@ import type { Task, Deal, Contact } from "@/lib/types";
 import DealModal from "@/components/DealModal";
 import ContactModal from "@/components/ContactModal";
 import OverviewCard from "@/components/OverviewCard";
+import AdvancedMetricsPanel from "@/components/AdvancedMetricsPanel";
 
 // Lazy load the list components
 const DealsList = lazy(() => import("@/components/DealsList"));
@@ -211,6 +212,12 @@ export default function Dashboard() {
                   tasks={tasks}
                   deals={deals}
                   isLoading={tasksLoading || dealsLoading}
+                />
+                <AdvancedMetricsPanel
+                  deals={deals}
+                  tasks={tasks}
+                  contacts={contacts}
+                  isLoading={tasksLoading || dealsLoading || contactsLoading}
                 />
               </section>
             );
