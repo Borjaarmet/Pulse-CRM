@@ -1,8 +1,7 @@
 import Card from "@/components/Card";
 import Metric from "@/components/Metric";
 import Skeleton from "@/components/Skeleton";
-import { getQuickMetrics } from "@/lib/db";
-import { useQuery } from "@tanstack/react-query";
+import { useQuickMetricsQuery, type QuickMetrics } from "@/hooks/useCrmQueries";
 
 interface QuickMetricsCardProps {
   tasks?: any[];
@@ -10,18 +9,10 @@ interface QuickMetricsCardProps {
   isLoading?: boolean;
 }
 
-interface QuickMetrics {
-  open: number;
-  won: number;
-  lost: number;
-  sumOpen: number;
-}
-
 export default function QuickMetricsCard({ tasks, deals, isLoading: externalLoading }: QuickMetricsCardProps) {
-  const { data: metrics = { open: 0, won: 0, lost: 0, sumOpen: 0 }, isLoading } = useQuery({
-    queryKey: ["quickMetrics"],
-    queryFn: getQuickMetrics,
-  });
+  const { data: metricsData, isLoading } = useQuickMetricsQuery();
+
+  const metrics = metricsData ?? ({ open: 0, won: 0, lost: 0, sumOpen: 0 } as QuickMetrics);
 
   const loading = externalLoading || isLoading;
 

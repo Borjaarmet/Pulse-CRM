@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getDeals, updateDeal, deleteDeal } from "@/lib/db";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateDeal, deleteDeal } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
@@ -28,6 +28,7 @@ import {
 import { Edit, Trash2, Search, Filter } from "lucide-react";
 import { calculateDealScore, calculateRiskLevel } from "@/lib/scoring";
 import type { Deal } from "@/lib/types";
+import { useDealsQuery } from "@/hooks/useCrmQueries";
 
 interface DealsListProps {
   className?: string;
@@ -53,10 +54,9 @@ export default function DealsList({ className }: DealsListProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: deals = [], isLoading } = useQuery({
-    queryKey: ["deals"],
-    queryFn: getDeals,
-  });
+  const { data: dealsData, isLoading } = useDealsQuery();
+
+  const deals = dealsData ?? ([] as Deal[]);
 
   const updateDealMutation = useMutation({
     mutationFn: ({ id, ...patch }: { id: string } & Partial<Deal>) =>
@@ -303,6 +303,7 @@ export default function DealsList({ className }: DealsListProps) {
                   const finalScore = scoringResult ? scoringResult.score : dealScore;
                   const finalPriority = scoringResult ? scoringResult.priority : dealPriority;
                   const finalRisk = dealRisk === 'Bajo' ? calculateRiskLevel(deal) : dealRisk;
+                  const tooltipType = finalPriority === 'Hot' ? 'hot' : finalPriority === 'Warm' ? 'warm' : 'cold';
 
                   return (
                     <TableRow key={deal.id}>
@@ -315,21 +316,13 @@ export default function DealsList({ className }: DealsListProps) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {scoringResult ? (
-                          <ScoringTooltip scoringResult={scoringResult}>
-                            <ScoreBadge 
-                              score={finalScore} 
-                              priority={finalPriority} 
-                              size="sm" 
-                            />
-                          </ScoringTooltip>
-                        ) : (
+                        <ScoringTooltip type={tooltipType}>
                           <ScoreBadge 
                             score={finalScore} 
                             priority={finalPriority} 
                             size="sm" 
                           />
-                        )}
+                        </ScoringTooltip>
                       </TableCell>
                       <TableCell>
                         <PriorityBadge priority={finalPriority} size="sm" />

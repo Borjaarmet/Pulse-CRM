@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addContact } from "@/lib/db";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -31,7 +32,7 @@ export default function ContactModal({
   const addContactMutation = useMutation({
     mutationFn: addContact,
     onSuccess: (contact) => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
       resetForm();
       onClose();
       onCreated?.(contact);

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDeal } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import type { Deal, Contact } from "@/lib/types";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +38,8 @@ export default function NewDealModal({
   const addDealMutation = useMutation({
     mutationFn: addDeal,
     onSuccess: (deal) => {
-      queryClient.invalidateQueries({ queryKey: ['deals'] });
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.deals });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
       setTitle("");
       setCompany("");
       setAmount("");

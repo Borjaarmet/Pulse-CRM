@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDeal, getContacts } from "@/lib/db";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { addDeal } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import ContactSelector from "@/components/ContactSelector";
 import type { Deal, Contact } from "@/lib/types";
+import { useContactsQuery } from "@/hooks/useCrmQueries";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 
 interface DealModalProps {
   open: boolean;
@@ -40,13 +42,11 @@ export default function DealModal({
   const { toast } = useToast();
 
   // Fetch contacts if not provided as props
-  const { data: contacts = [] } = useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
+  const { data: contactsData } = useContactsQuery({
     enabled: !propContacts,
   });
-
-  const availableContacts = propContacts || contacts;
+  const contacts = contactsData ?? ([] as Contact[]);
+  const availableContacts = propContacts ?? contacts;
 
   // Populate form when editing a deal
   useEffect(() => {
@@ -68,12 +68,12 @@ export default function DealModal({
   const addDealMutation = useMutation({
     mutationFn: addDeal,
     onSuccess: (newDeal) => {
-      queryClient.invalidateQueries({ queryKey: ['deals'] });
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.deals });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
       // Invalidate dashboard queries
-      queryClient.invalidateQueries({ queryKey: ['hotDeal'] });
-      queryClient.invalidateQueries({ queryKey: ['stalledDeals'] });
-      queryClient.invalidateQueries({ queryKey: ['quickMetrics'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hotDeal });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stalledDeals });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quickMetrics });
       resetForm();
       onClose();
       onCreated?.(newDeal);

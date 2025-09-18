@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getDeals, getContacts } from '@/lib/db';
 import { calculateDealScore, calculateContactScore, recalculateAllScores } from '@/lib/scoring';
 import Card from './Card';
 import ScoreBadge from './ScoreBadge';
@@ -11,6 +9,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { RefreshCw, TrendingUp, Users, Target } from 'lucide-react';
 import type { Deal, Contact } from '@/lib/types';
+import { useDealsQuery, useContactsQuery } from '@/hooks/useCrmQueries';
 
 /**
  * Componente de demostración del sistema de scoring
@@ -19,15 +18,12 @@ export default function ScoringDemo() {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [lastRecalculation, setLastRecalculation] = useState<Date | null>(null);
 
-  const { data: deals = [], isLoading: dealsLoading } = useQuery({
-    queryKey: ["deals"],
-    queryFn: getDeals,
-  });
+  const { data: dealsData, isLoading: dealsLoading } = useDealsQuery();
 
-  const { data: contacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
-  });
+  const { data: contactsData, isLoading: contactsLoading } = useContactsQuery();
+
+  const deals = dealsData ?? ([] as Deal[]);
+  const contacts = contactsData ?? ([] as Contact[]);
 
   // Calcular scores para todos los deals y contactos
   const dealsWithScoring = deals.map(deal => {
@@ -144,7 +140,13 @@ export default function ScoringDemo() {
           {dealsWithScoring
             .sort((a, b) => b.calculatedScore - a.calculatedScore)
             .slice(0, 5)
-            .map((deal, index) => (
+            .map((deal, index) => {
+              const tooltipType = deal.calculatedPriority === 'Hot'
+                ? 'hot'
+                : deal.calculatedPriority === 'Warm'
+                  ? 'warm'
+                  : 'cold';
+              return (
               <div key={deal.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
@@ -156,7 +158,7 @@ export default function ScoringDemo() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ScoringTooltip scoringResult={deal.scoringResult}>
+                  <ScoringTooltip type={tooltipType}>
                     <ScoreBadge 
                       score={deal.calculatedScore} 
                       priority={deal.calculatedPriority} 
@@ -168,7 +170,8 @@ export default function ScoringDemo() {
                   </span>
                 </div>
               </div>
-            ))}
+            );
+            })}
         </div>
       </Card>
 
@@ -183,7 +186,13 @@ export default function ScoringDemo() {
           {contactsWithScoring
             .sort((a, b) => b.calculatedScore - a.calculatedScore)
             .slice(0, 5)
-            .map((contact, index) => (
+            .map((contact, index) => {
+              const tooltipType = contact.calculatedPriority === 'Hot'
+                ? 'hot'
+                : contact.calculatedPriority === 'Warm'
+                  ? 'warm'
+                  : 'cold';
+              return (
               <div key={contact.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="w-8 h-8 rounded-full flex items-center justify-center">
@@ -197,7 +206,7 @@ export default function ScoringDemo() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <ScoringTooltip scoringResult={contact.scoringResult}>
+                  <ScoringTooltip type={tooltipType}>
                     <ScoreBadge 
                       score={contact.calculatedScore} 
                       priority={contact.calculatedPriority} 
@@ -207,7 +216,8 @@ export default function ScoringDemo() {
                   <PriorityBadge priority={contact.calculatedPriority} size="sm" />
                 </div>
               </div>
-            ))}
+            );
+            })}
         </div>
       </Card>
 

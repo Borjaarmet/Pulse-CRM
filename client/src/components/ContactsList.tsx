@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getContacts, updateContact, deleteContact, getDeals } from "@/lib/db";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { updateContact, deleteContact } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
@@ -27,6 +27,7 @@ import {
 import { Edit, Trash2, Search, Filter } from "lucide-react";
 import { calculateContactScore } from "@/lib/scoring";
 import type { Contact, Deal } from "@/lib/types";
+import { useContactsQuery, useDealsQuery } from "@/hooks/useCrmQueries";
 
 interface ContactsListProps {
   className?: string;
@@ -46,15 +47,11 @@ export default function ContactsList({ className }: ContactsListProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: contacts = [], isLoading } = useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
-  });
+  const { data: contactsData, isLoading } = useContactsQuery();
+  const { data: dealsData } = useDealsQuery();
 
-  const { data: deals = [] } = useQuery({
-    queryKey: ["deals"],
-    queryFn: getDeals,
-  });
+  const contacts = contactsData ?? ([] as Contact[]);
+  const deals = dealsData ?? ([] as Deal[]);
 
   const updateContactMutation = useMutation({
     mutationFn: ({ id, ...patch }: { id: string } & Partial<Contact>) =>
@@ -231,6 +228,7 @@ export default function ContactsList({ className }: ContactsListProps) {
                   const scoringResult = contactScore === 0 ? calculateContactScore(contact, contactDeals) : null;
                   const finalScore = scoringResult ? scoringResult.score : contactScore;
                   const finalPriority = scoringResult ? scoringResult.priority : contactPriority;
+                  const tooltipType = finalPriority === 'Hot' ? 'hot' : finalPriority === 'Warm' ? 'warm' : 'cold';
 
                   // Formatear última actividad
                   const formatLastActivity = (lastActivity?: string) => {
@@ -252,21 +250,13 @@ export default function ContactsList({ className }: ContactsListProps) {
                       <TableCell>{contact.email || "-"}</TableCell>
                       <TableCell>{typeof contact.company === 'string' ? contact.company : "-"}</TableCell>
                       <TableCell>
-                        {scoringResult ? (
-                          <ScoringTooltip scoringResult={scoringResult}>
-                            <ScoreBadge 
-                              score={finalScore} 
-                              priority={finalPriority} 
-                              size="sm" 
-                            />
-                          </ScoringTooltip>
-                        ) : (
+                        <ScoringTooltip type={tooltipType}>
                           <ScoreBadge 
                             score={finalScore} 
                             priority={finalPriority} 
                             size="sm" 
                           />
-                        )}
+                        </ScoringTooltip>
                       </TableCell>
                       <TableCell>
                         <PriorityBadge priority={finalPriority} size="sm" />

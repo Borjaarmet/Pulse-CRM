@@ -1,19 +1,16 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import Card from "./Card";
 import DealModal from '@/components/DealModal';
 import NewContactModal from '@/components/ui/NewContactModal';
-import { getContacts } from '@/lib/db';
+import { useContactsQuery } from '@/hooks/useCrmQueries';
 import type { Contact } from '@/lib/types';
 
 export default function ShortcutsCard() {
   const [openDeal, setOpenDeal] = useState(false);
   const [openContact, setOpenContact] = useState(false);
 
-  const { data: contacts = [] } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: getContacts,
-  });
+  const { data: contactsData } = useContactsQuery();
+  const contacts = contactsData ?? ([] as Contact[]);
   const shortcuts = [
     {
       id: 1,

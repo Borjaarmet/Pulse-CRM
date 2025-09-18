@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addTask } from "@/lib/db";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
 
 export default function TaskQuickAdd() {
@@ -12,7 +13,7 @@ export default function TaskQuickAdd() {
   const addTaskMutation = useMutation({
     mutationFn: addTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
       setTitle("");
       setDueAt("");
       toast({

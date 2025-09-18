@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getContacts, addContact } from "@/lib/db";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { addContact } from "@/lib/db";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import type { Contact } from "@/lib/types";
@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useContactsQuery } from "@/hooks/useCrmQueries";
 
 interface ContactSelectorProps {
   value?: string;
@@ -56,12 +57,9 @@ export default function ContactSelector({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch contacts with search
-  const { data: contacts = [], isLoading } = useQuery({
-    queryKey: ["contacts", debouncedSearchQuery],
-    queryFn: () => getContacts(),
-    enabled: true,
-  });
+  // Fetch contacts once and filter locally (preparado para backend real)
+  const { data: contactsData, isLoading } = useContactsQuery();
+  const contacts = contactsData ?? ([] as Contact[]);
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {

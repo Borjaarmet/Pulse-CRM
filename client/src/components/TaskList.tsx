@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { markTaskDone } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import type { Task } from "@/lib/types";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 
 interface TaskListProps {
   tasks: Task[];
@@ -15,7 +16,7 @@ export default function TaskList({ tasks }: TaskListProps) {
     mutationFn: ({ id, done }: { id: string; done: boolean }) => 
       markTaskDone(id, done ? 'Done' : 'To Do'),
     onSuccess: (_, { done }) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tasks });
       toast({
         title: done ? "Task completed" : "Task reopened",
         description: done ? "Great job!" : "Task marked as active",

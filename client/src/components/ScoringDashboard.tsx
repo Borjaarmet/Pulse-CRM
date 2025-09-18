@@ -1,6 +1,4 @@
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getDeals, getContacts } from "@/lib/db";
 import { calculateDealScore, calculateContactScore } from "@/lib/scoring";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
@@ -23,6 +21,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import type { Deal, Contact, Priority } from "@/lib/types";
+import { useDealsQuery, useContactsQuery } from "@/hooks/useCrmQueries";
 
 interface ScoringDashboardProps {
   className?: string;
@@ -31,15 +30,11 @@ interface ScoringDashboardProps {
 export default function ScoringDashboard({ className }: ScoringDashboardProps) {
   const [isRecalculating, setIsRecalculating] = useState(false);
 
-  const { data: deals = [], isLoading: dealsLoading } = useQuery({
-    queryKey: ["deals"],
-    queryFn: getDeals,
-  });
+  const { data: dealsData, isLoading: dealsLoading } = useDealsQuery();
+  const { data: contactsData, isLoading: contactsLoading } = useContactsQuery();
 
-  const { data: contacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ["contacts"],
-    queryFn: getContacts,
-  });
+  const deals = dealsData ?? ([] as Deal[]);
+  const contacts = contactsData ?? ([] as Contact[]);
 
   const scoringData = useMemo(() => {
     if (dealsLoading || contactsLoading) return null;

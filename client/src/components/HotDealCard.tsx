@@ -1,11 +1,10 @@
 import Card from "./Card";
 import Skeleton from "./Skeleton";
 import AIEmailGenerator from "./AIEmailGenerator";
-import { getHotDeal } from "@/lib/db";
 import { Button } from "./ui/button";
 import { Mail, ExternalLink } from "lucide-react";
 import type { Deal } from "@/lib/types";
-import { useQuery } from "@tanstack/react-query";
+import { useHotDealQuery } from "@/hooks/useCrmQueries";
 
 interface HotDealCardProps {
   deals?: Deal[];
@@ -13,11 +12,9 @@ interface HotDealCardProps {
 }
 
 export default function HotDealCard({ deals, isLoading: externalLoading }: HotDealCardProps) {
-  const { data: hotDeals = [], isLoading } = useQuery({
-    queryKey: ["hotDeal"],
-    queryFn: getHotDeal,
-  });
+  const { data: hotDealsData, isLoading } = useHotDealQuery();
 
+  const hotDeals = hotDealsData ?? ([] as Deal[]);
   const hotDeal = hotDeals.length > 0 ? hotDeals[0] : null;
   const loading = externalLoading || isLoading;
 

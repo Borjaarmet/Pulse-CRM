@@ -1,8 +1,7 @@
 import Card from "./Card";
 import Skeleton from "./Skeleton";
-import { getStalledDeals } from "@/lib/db";
 import type { Deal } from "@/lib/types";
-import { useQuery } from "@tanstack/react-query";
+import { useStalledDealsQuery } from "@/hooks/useCrmQueries";
 
 interface StalledDealsCardProps {
   deals?: Deal[];
@@ -10,10 +9,9 @@ interface StalledDealsCardProps {
 }
 
 export default function StalledDealsCard({ deals, isLoading: externalLoading }: StalledDealsCardProps) {
-  const { data: stalledDeals = [], isLoading } = useQuery({
-    queryKey: ["stalledDeals"],
-    queryFn: getStalledDeals,
-  });
+  const { data: stalledDealsData, isLoading } = useStalledDealsQuery();
+
+  const stalledDeals = stalledDealsData ?? ([] as Deal[]);
 
   const loading = externalLoading || isLoading;
 

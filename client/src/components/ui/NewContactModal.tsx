@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addContact } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import type { Contact } from "@/lib/types";
+import { QUERY_KEYS } from "@/lib/queryKeys";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ export default function NewContactModal({
   const addContactMutation = useMutation({
     mutationFn: addContact,
     onSuccess: (contact) => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.contacts });
       setName("");
       setEmail("");
       setCompany("");
