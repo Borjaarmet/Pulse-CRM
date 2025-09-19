@@ -32,11 +32,11 @@ export default function DealModal({
   const [company, setCompany] = useState("");
   const [amount, setAmount] = useState("");
   const [stage, setStage] = useState("Prospección");
-  const [probability, setProbability] = useState("0");
   const [targetClose, setTargetClose] = useState("");
   const [nextStep, setNextStep] = useState("");
   const [contactId, setContactId] = useState<string | undefined>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [autoProbability, setAutoProbability] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -55,10 +55,10 @@ export default function DealModal({
       setCompany(deal.company || "");
       setAmount(deal.amount?.toString() || "");
       setStage(deal.stage || "Prospección");
-      setProbability(deal.probability?.toString() || "0");
       setTargetClose(deal.target_close_date || "");
       setNextStep(deal.next_step || "");
       setContactId(deal.contact_id || "");
+      setAutoProbability(typeof deal.probability === "number" ? deal.probability : null);
     } else if (open) {
       // Reset form when creating new deal
       resetForm();
@@ -96,11 +96,11 @@ export default function DealModal({
     setCompany("");
     setAmount("");
     setStage("Prospección");
-    setProbability("0");
     setTargetClose("");
     setNextStep("");
     setContactId("");
     setErrors({});
+    setAutoProbability(null);
   };
 
   const validateForm = (): boolean => {
@@ -112,10 +112,6 @@ export default function DealModal({
 
     if (amount && (isNaN(Number(amount)) || Number(amount) < 0)) {
       newErrors.amount = "El monto debe ser un número válido mayor o igual a 0";
-    }
-
-    if (probability && (isNaN(Number(probability)) || Number(probability) < 0 || Number(probability) > 100)) {
-      newErrors.probability = "La probabilidad debe ser un número entre 0 y 100";
     }
 
     if (targetClose && isNaN(Date.parse(targetClose))) {
@@ -134,21 +130,16 @@ export default function DealModal({
     }
 
     const amountValue = amount ? Number(amount) : undefined;
-    const probabilityValue = Math.max(0, Math.min(100, Number(probability) || 0));
-
     addDealMutation.mutate({
       title: title.trim(),
       company: company.trim() || undefined,
       amount: amountValue,
       stage,
-      probability: probabilityValue,
       target_close_date: targetClose || undefined,
       next_step: nextStep.trim() || undefined,
       contact_id: contactId || undefined,
       status: 'Open',
       score: 0,
-      priority: 'Cold' as const,
-      risk_level: 'Bajo' as const,
       inactivity_days: 0,
       created_at: new Date().toISOString(),
     });
@@ -196,38 +187,27 @@ export default function DealModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm font-medium text-card-foreground block mb-2">
-                Monto
-              </label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                placeholder="50000"
-                min="0"
-                step="0.01"
-                data-testid="input-deal-amount"
-              />
-            </div>
+          <div>
+            <label className="text-sm font-medium text-card-foreground block mb-2">
+              Monto
+            </label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+              placeholder="50000"
+              min="0"
+              step="0.01"
+              data-testid="input-deal-amount"
+            />
+          </div>
 
-            <div>
-              <label className="text-sm font-medium text-card-foreground block mb-2">
-                Probabilidad (%)
-              </label>
-              <input
-                type="number"
-                value={probability}
-                onChange={(e) => setProbability(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                placeholder="70"
-                min="0"
-                max="100"
-                data-testid="input-deal-probability"
-              />
-            </div>
+          <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+            La probabilidad inicial se calculará automáticamente según etapa, valor, actividad y próximos pasos.
+            {autoProbability !== null && (
+              <span className="ml-1 font-semibold">Probabilidad actual: {autoProbability}%</span>
+            )}
           </div>
 
           <div>
@@ -241,6 +221,7 @@ export default function DealModal({
               data-testid="select-deal-stage"
             >
               <option value="Prospección">Prospección</option>
+              <option value="Calificación">Calificación</option>
               <option value="Negociación">Negociación</option>
               <option value="Propuesta">Propuesta</option>
               <option value="Cierre">Cierre</option>

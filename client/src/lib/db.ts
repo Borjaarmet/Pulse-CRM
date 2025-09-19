@@ -1,5 +1,5 @@
 // lib/db.ts
-import type { Task, Deal, Contact, TimelineEntry } from "./types";
+import type { Task, Deal, Contact, TimelineEntry, Priority, RiskLevel } from "./types";
 import { seedCompanies, ensureCompanyByName } from "./companies";
 
 /* =========================
@@ -56,6 +56,92 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+const STAGE_BASE_PROBABILITY: Record<string, number> = {
+  Prospección: 15,
+  Prospeccion: 15,
+  "Calificación": 30,
+  Calificacion: 30,
+  Propuesta: 50,
+  "Negociación": 65,
+  Negociacion: 65,
+  Cierre: 85,
+};
+
+const HOT_THRESHOLD = 70;
+const WARM_THRESHOLD = 40;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function inferDealInsights(partial: Partial<Deal>): {
+  probability: number;
+  priority: Priority;
+  risk_level: RiskLevel;
+} {
+  const stage = partial.stage ?? "Prospección";
+  const base = STAGE_BASE_PROBABILITY[stage] ?? 20;
+
+  let probability = base;
+
+  const amount = typeof partial.amount === "string" ? Number(partial.amount) : partial.amount ?? 0;
+  if (amount >= 50000) probability += 5;
+  else if (amount >= 15000) probability += 3;
+
+  if (partial.next_step && partial.next_step.trim().length > 0) probability += 5;
+
+  if (partial.target_close_date) {
+    const target = new Date(partial.target_close_date);
+    if (!Number.isNaN(target.getTime())) {
+      const diffDays = Math.floor((target.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 14) probability += 5;
+      else if (diffDays <= 30) probability += 3;
+      if (diffDays < 0) probability -= 10;
+    }
+  }
+
+  const lastActivity = partial.last_activity ? new Date(partial.last_activity) : null;
+  if (lastActivity && !Number.isNaN(lastActivity.getTime())) {
+    const diffDays = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 3) probability += 5;
+    else if (diffDays >= 14) probability -= 10;
+    else if (diffDays >= 7) probability -= 5;
+  }
+
+  probability = clamp(Math.round(probability), 5, 95);
+
+  let priority: Priority;
+  if (probability >= HOT_THRESHOLD) priority = "Hot";
+  else if (probability >= WARM_THRESHOLD) priority = "Warm";
+  else priority = "Cold";
+
+  let risk: RiskLevel = "Bajo";
+  if (!partial.next_step || !partial.next_step.trim()) {
+    risk = probability >= WARM_THRESHOLD ? "Medio" : "Alto";
+  }
+
+  if (partial.target_close_date) {
+    const target = new Date(partial.target_close_date);
+    if (!Number.isNaN(target.getTime()) && target.getTime() < Date.now()) {
+      risk = "Alto";
+    }
+  }
+
+  const inactivity = partial.inactivity_days ?? (() => {
+    if (!lastActivity) return 0;
+    return Math.max(0, Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24)));
+  })();
+
+  if (inactivity >= 14) risk = "Alto";
+  else if (inactivity >= 7 && risk !== "Alto") risk = "Medio";
+
+  return {
+    probability,
+    priority,
+    risk_level: risk,
+  };
+}
+
 /* ==============
    QUERIES: TASKS
    ============== */
@@ -75,21 +161,37 @@ export async function getTasks(): Promise<Task[]> {
 export async function addTask(
   payload: Omit<Task, "id" | "inserted_at">,
 ): Promise<Task> {
+  const now = new Date().toISOString();
+  const normalizedPayload = {
+    ...payload,
+    due_at: payload.due_at || null,
+    created_at: payload.created_at ?? now,
+    updated_at: payload.updated_at ?? now,
+  } as Omit<Task, "id">;
+
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
     const { data, error } = await supabase
       .from("tasks")
-      .insert([payload])
+      .insert([normalizedPayload])
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "task_created",
+        description: `Nueva tarea: ${data.title}`,
+        entity_type: "task",
+        entity_id: data.id,
+      });
+    }
     return data;
   }
 
   const newTask = {
     id: generateId(),
-    ...payload,
-    inserted_at: new Date().toISOString(),
+    ...normalizedPayload,
+    inserted_at: now,
   };
   demoData.tasks.unshift(newTask);
   logTimelineEntry({
@@ -114,6 +216,17 @@ export async function markTaskDone(
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: state === "Done" ? "task_completed" : "task_reopened",
+        description:
+          state === "Done"
+            ? `Tarea completada: ${data.title}`
+            : `Tarea reactivada: ${data.title}`,
+        entity_type: "task",
+        entity_id: id,
+      });
+    }
     return data;
   }
 
@@ -147,6 +260,14 @@ export async function updateTask(
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "task_updated",
+        description: `Tarea actualizada: ${data.title}`,
+        entity_type: "task",
+        entity_id: id,
+      });
+    }
     return data;
   }
 
@@ -165,11 +286,21 @@ export async function updateTask(
 export async function deleteTask(id: string): Promise<void> {
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("tasks")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select()
+      .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "task_deleted",
+        description: `Tarea eliminada: ${data.title ?? ""}`,
+        entity_type: "task",
+        entity_id: id,
+      });
+    }
     return;
   }
 
@@ -206,10 +337,17 @@ export async function getHotDeal(): Promise<Deal[]> {
     const { data, error } = await supabase
       .from("deals_hot_v1")
       .select("*")
-      .order("score", { ascending: false })
+      .order("hot_score", { ascending: false })
       .limit(1);
     if (error) throw error;
-    return data ?? [];
+    const records = (data ?? []) as Array<Deal & { hot_score?: number }>;
+    return records.map((record) => ({
+      ...record,
+      score:
+        typeof record.hot_score === "number"
+          ? Number(record.hot_score)
+          : record.score ?? 0,
+    }));
   }
   // Fallback to demo data - find hottest deal by score
   const hottestDeal = demoData.deals.reduce((hottest, deal) => {
@@ -229,7 +367,14 @@ export async function getStalledDeals(): Promise<Deal[]> {
       .order("inactivity", { ascending: false })
       .limit(5);
     if (error) throw error;
-    return data ?? [];
+    const records = (data ?? []) as Array<Deal & { inactivity?: number }>;
+    return records.map((record) => ({
+      ...record,
+      inactivity_days:
+        typeof record.inactivity === "number"
+          ? Number(record.inactivity)
+          : record.inactivity_days ?? 0,
+    }));
   }
   // Fallback to demo data - filter stalled deals
   const stalledDeals = demoData.deals.filter(deal => {
@@ -286,17 +431,44 @@ export async function getQuickMetrics(): Promise<{ open: number; won: number; lo
 }
 
 export async function addDeal(
-  payload: Omit<Deal, "id" | "updated_at"> & { contact_id?: string },
+  payload: Omit<Deal, "id" | "updated_at" | "probability" | "priority" | "risk_level"> & {
+    probability?: number;
+    priority?: Priority;
+    risk_level?: RiskLevel;
+    contact_id?: string;
+  },
 ): Promise<Deal> {
-  // Normalize defaults
+  const now = new Date().toISOString();
+
+  const amount =
+    payload.amount !== undefined && payload.amount !== null
+      ? Number(payload.amount)
+      : undefined;
+
+  const draftForInsights: Partial<Deal> = {
+    ...payload,
+    amount,
+    stage: payload.stage || "Prospección",
+    last_activity: payload.last_activity ?? now,
+    inactivity_days: payload.inactivity_days ?? 0,
+  };
+
+  const { probability, priority, risk_level } = inferDealInsights(draftForInsights);
+
   const normalizedPayload = {
     ...payload,
+    amount,
     status: payload.status || "Open",
-    risk: (payload as any).risk || "Bajo",
-    probability: payload.probability ?? 0,
+    priority: payload.priority ?? priority,
+    risk_level: payload.risk_level || (payload as any).risk_level || risk_level,
+    probability: clamp(payload.probability ?? probability, 0, 100),
     stage: payload.stage || "Prospección",
-    updated_at: new Date().toISOString(),
-  };
+    updated_at: now,
+    created_at: payload.created_at ?? now,
+    last_activity: draftForInsights.last_activity,
+    inactivity_days: draftForInsights.inactivity_days ?? 0,
+    score: payload.score ?? 0,
+  } as Omit<Deal, "id">;
 
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
@@ -306,6 +478,15 @@ export async function addDeal(
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "deal_created",
+        description: `Nuevo deal: ${data.title}`,
+        entity_type: "deal",
+        entity_id: data.id,
+        metadata: JSON.stringify({ stage: data.stage, probability: data.probability }),
+      });
+    }
     return data;
   }
 
@@ -314,6 +495,13 @@ export async function addDeal(
     ...normalizedPayload,
   };
   demoData.deals.unshift(newDeal);
+  logTimelineEntry({
+    type: "deal_created",
+    description: `Nuevo deal: ${newDeal.title}`,
+    entity_type: "deal",
+    entity_id: newDeal.id,
+    metadata: JSON.stringify({ stage: newDeal.stage, probability: newDeal.probability }),
+  });
   return newDeal;
 }
 
@@ -345,10 +533,13 @@ export async function addContact(
     companyName = companyRecord.name;
   }
 
+  const now = new Date().toISOString();
   const normalizedPayload = {
     ...payload,
     company: companyName,
     company_id: companyId,
+    created_at: payload.created_at ?? now,
+    updated_at: payload.updated_at ?? now,
   } as Omit<Contact, "id" | "inserted_at">;
 
   if (IS_SUPABASE_MODE) {
@@ -359,6 +550,15 @@ export async function addContact(
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "contact_created",
+        description: `Nuevo contacto: ${data.name}`,
+        entity_type: "contact",
+        entity_id: data.id,
+        metadata: data.company_id ? JSON.stringify({ company_id: data.company_id }) : undefined,
+      });
+    }
     return data;
   }
 
@@ -389,6 +589,19 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
 
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
+    const { data: current, error: fetchError } = await supabase
+      .from("deals")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (fetchError) throw fetchError;
+
+    const draft: Partial<Deal> = { ...current, ...normalizedPatch };
+    const auto = inferDealInsights(draft);
+    if (patch.probability === undefined) normalizedPatch.probability = auto.probability;
+    if (patch.priority === undefined) normalizedPatch.priority = auto.priority;
+    if (patch.risk_level === undefined) normalizedPatch.risk_level = auto.risk_level;
+
     const { data, error } = await supabase
       .from("deals")
       .update(normalizedPatch)
@@ -396,29 +609,76 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      const changes: string[] = [];
+      if (current?.stage !== data.stage) {
+        changes.push(`Etapa: ${current?.stage ?? ""} → ${data.stage}`);
+      }
+      if (current?.probability !== data.probability) {
+        changes.push(`Probabilidad: ${current?.probability ?? 0}% → ${data.probability ?? 0}%`);
+      }
+      if (patch.status && current?.status !== data.status) {
+        changes.push(`Estado: ${current?.status ?? ""} → ${data.status}`);
+      }
+
+      logTimelineEntry({
+        type: "deal_updated",
+        description: `Deal actualizado: ${data.title}`,
+        entity_type: "deal",
+        entity_id: id,
+        metadata: changes.length ? JSON.stringify({ changes }) : undefined,
+      });
+    }
     return data;
   }
 
   const idx = demoData.deals.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error("Deal not found");
-  demoData.deals[idx] = { ...demoData.deals[idx], ...normalizedPatch };
+  const draft = { ...demoData.deals[idx], ...normalizedPatch } as Deal;
+  const auto = inferDealInsights(draft);
+  if (patch.probability === undefined) draft.probability = auto.probability;
+  if (patch.priority === undefined) draft.priority = auto.priority;
+  if (patch.risk_level === undefined) draft.risk_level = auto.risk_level;
+  demoData.deals[idx] = draft;
+  logTimelineEntry({
+    type: "deal_updated",
+    description: `Deal actualizado: ${draft.title}`,
+    entity_type: "deal",
+    entity_id: id,
+  });
   return demoData.deals[idx];
 }
 
 export async function deleteDeal(id: string): Promise<void> {
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("deals")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select()
+      .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "deal_deleted",
+        description: `Deal eliminado: ${data.title ?? ""}`,
+        entity_type: "deal",
+        entity_id: id,
+      });
+    }
     return;
   }
 
   const idx = demoData.deals.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error("Deal not found");
-  demoData.deals.splice(idx, 1);
+  const [removed] = demoData.deals.splice(idx, 1);
+  logTimelineEntry({
+    type: "deal_deleted",
+    description: `Deal eliminado: ${removed?.title ?? ""}`,
+    entity_type: "deal",
+    entity_id: id,
+  });
 }
 
 export async function updateContact(id: string, patch: Partial<Contact>): Promise<Contact> {
@@ -447,6 +707,14 @@ export async function updateContact(id: string, patch: Partial<Contact>): Promis
       .select()
       .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "contact_updated",
+        description: `Contacto actualizado: ${data.name}`,
+        entity_type: "contact",
+        entity_id: id,
+      });
+    }
     return data;
   }
 
@@ -465,11 +733,21 @@ export async function updateContact(id: string, patch: Partial<Contact>): Promis
 export async function deleteContact(id: string): Promise<void> {
   if (IS_SUPABASE_MODE) {
     await ensureSupabase();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("contacts")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select()
+      .single();
     if (error) throw error;
+    if (data) {
+      logTimelineEntry({
+        type: "contact_deleted",
+        description: `Contacto eliminado: ${data.name ?? ""}`,
+        entity_type: "contact",
+        entity_id: id,
+      });
+    }
     return;
   }
 

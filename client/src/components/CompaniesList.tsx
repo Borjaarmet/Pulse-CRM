@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCompanies, updateCompany, deleteCompany } from "@/lib/companies";
+import { getCompanies, updateCompany, deleteCompany, addCompany } from "@/lib/companies";
 import { useToast } from "@/hooks/use-toast";
 import Card from "./Card";
 import Skeleton from "./Skeleton";
@@ -47,6 +47,7 @@ export default function CompaniesList({ className }: CompaniesListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [creatingCompany, setCreatingCompany] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -54,6 +55,25 @@ export default function CompaniesList({ className }: CompaniesListProps) {
   const { data: companies = [], isLoading } = useQuery({
     queryKey: ["companies"],
     queryFn: getCompanies,
+  });
+
+  const addCompanyMutation = useMutation({
+    mutationFn: addCompany,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setIsAddModalOpen(false);
+      toast({
+        title: "Empresa creada",
+        description: "La empresa se ha creado exitosamente",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "No se pudo crear la empresa",
+        variant: "destructive",
+      });
+    },
   });
 
   const updateCompanyMutation = useMutation({
@@ -506,6 +526,138 @@ export default function CompaniesList({ className }: CompaniesListProps) {
               </div>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Modal */}
+      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva Empresa</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (creatingCompany) return;
+
+              const formData = new FormData(event.currentTarget);
+              const payload = {
+                name: (formData.get("name") as string)?.trim(),
+                industry: (formData.get("industry") as string)?.trim() || undefined,
+                size: (formData.get("size") as string)?.trim() || undefined,
+                revenue_estimate: formData.get("revenue_estimate")
+                  ? Number(formData.get("revenue_estimate"))
+                  : undefined,
+                location: (formData.get("location") as string)?.trim() || undefined,
+                website: (formData.get("website") as string)?.trim() || undefined,
+                description: (formData.get("description") as string)?.trim() || undefined,
+                score: 0,
+                priority: "Cold" as const,
+              };
+
+              if (!payload.name) {
+                toast({
+                  title: "Nombre obligatorio",
+                  description: "Introduce un nombre para la empresa",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              setCreatingCompany(true);
+              addCompanyMutation.mutate(payload, {
+                onSettled: () => {
+                  setCreatingCompany(false);
+                },
+                onSuccess: () => {
+                  (event.target as HTMLFormElement).reset();
+                },
+              });
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="text-sm font-medium text-card-foreground block mb-2">
+                Nombre *
+              </label>
+              <Input name="name" required placeholder="Ej: TechCorp Solutions" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-card-foreground block mb-2">
+                  Industria
+                </label>
+                <Select name="industry">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRIES.map((industry) => (
+                      <SelectItem key={industry} value={industry}>
+                        {industry}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-card-foreground block mb-2">
+                  Tamaño
+                </label>
+                <Select name="size">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SIZES.map((size) => (
+                      <SelectItem key={size} value={size}>
+                        {size}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-card-foreground block mb-2">
+                Facturación Estimada (€)
+              </label>
+              <Input name="revenue_estimate" type="number" min="0" step="1000" />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-card-foreground block mb-2">
+                Ubicación
+              </label>
+              <Input name="location" placeholder="Ej: Barcelona, España" />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-card-foreground block mb-2">
+                Website
+              </label>
+              <Input name="website" type="url" placeholder="https://empresa.com" />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-card-foreground block mb-2">
+                Descripción
+              </label>
+              <Input name="description" placeholder="Notas breves" />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsAddModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={creatingCompany || addCompanyMutation.isPending}>
+                {creatingCompany || addCompanyMutation.isPending ? "Creando..." : "Crear"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
