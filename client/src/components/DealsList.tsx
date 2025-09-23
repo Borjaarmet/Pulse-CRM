@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateDeal, deleteDeal } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
@@ -39,10 +39,23 @@ const STATUSES = ["Open", "Won", "Lost"];
 const PRIORITIES = ["Cold", "Warm", "Hot"];
 const RISK_LEVELS = ["Bajo", "Medio", "Alto"];
 
+function translateDealError(message: string) {
+  switch (message) {
+    case "NEXT_STEP_REQUIRED":
+      return "Debes definir un próximo paso antes de guardar.";
+    case "TARGET_CLOSE_REQUIRED":
+      return "La fecha objetivo de cierre es obligatoria.";
+    case "CLOSE_REASON_REQUIRED":
+      return "Indica el motivo al marcar un deal como ganado o perdido.";
+    default:
+      return message;
+  }
+}
+
 export default function DealsList({ className }: DealsListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("Open");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,6 +63,8 @@ export default function DealsList({ className }: DealsListProps) {
   const [deletingDeal, setDeletingDeal] = useState<Deal | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<"Open" | "Won" | "Lost">("Open");
+  const [closeReason, setCloseReason] = useState("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -57,6 +72,16 @@ export default function DealsList({ className }: DealsListProps) {
   const { data: dealsData, isLoading } = useDealsQuery();
 
   const deals = dealsData ?? ([] as Deal[]);
+
+  useEffect(() => {
+    if (editingDeal) {
+      setStatusDraft(editingDeal.status);
+      setCloseReason(editingDeal.close_reason ?? "");
+    } else {
+      setStatusDraft("Open");
+      setCloseReason("");
+    }
+  }, [editingDeal]);
 
   const updateDealMutation = useMutation({
     mutationFn: ({ id, ...patch }: { id: string } & Partial<Deal>) =>
@@ -70,10 +95,11 @@ export default function DealsList({ className }: DealsListProps) {
         description: "El deal se ha actualizado exitosamente",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "No se pudo actualizar el deal";
       toast({
         title: "Error",
-        description: "No se pudo actualizar el deal",
+        description: translateDealError(message),
         variant: "destructive",
       });
     },
@@ -121,6 +147,8 @@ export default function DealsList({ className }: DealsListProps) {
 
   const handleEdit = (deal: Deal) => {
     setEditingDeal(deal);
+    setStatusDraft(deal.status);
+    setCloseReason(deal.close_reason ?? "");
     setIsEditModalOpen(true);
   };
 
@@ -134,17 +162,54 @@ export default function DealsList({ className }: DealsListProps) {
     if (!editingDeal) return;
 
     const formData = new FormData(e.target as HTMLFormElement);
-    const patch = {
-      title: formData.get("title") as string,
-      company: formData.get("company") as string,
-      amount: formData.get("amount") ? Number(formData.get("amount")) : undefined,
-      stage: formData.get("stage") as string,
-      probability: Number(formData.get("probability")) || 0,
-      next_step: formData.get("next_step") as string,
-      status: formData.get("status") as "Open" | "Won" | "Lost",
-    };
+    const nextStep = (formData.get("next_step") as string)?.trim() ?? "";
+    const targetClose = formData.get("target_close_date") as string;
+    const titleValue = (formData.get("title") as string)?.trim();
+    const companyValue = (formData.get("company") as string)?.trim();
+    const amountRaw = formData.get("amount");
+    const amountValue = amountRaw ? Number(amountRaw) : undefined;
+    const stageValue = formData.get("stage") as string;
+    const statusValue = statusDraft;
+    const closeReasonValue = closeReason.trim();
 
-    updateDealMutation.mutate({ id: editingDeal.id, ...patch });
+    if (!nextStep) {
+      toast({
+        title: "Falta el próximo paso",
+        description: "Define el próximo paso antes de guardar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!targetClose) {
+      toast({
+        title: "Fecha objetivo requerida",
+        description: "Selecciona una fecha objetivo de cierre.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if ((statusValue === "Won" || statusValue === "Lost") && !closeReasonValue) {
+      toast({
+        title: "Motivo requerido",
+        description: "Indica el motivo al cerrar el deal como ganado o perdido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateDealMutation.mutate({
+      id: editingDeal.id,
+      title: titleValue,
+      company: companyValue,
+      amount: amountValue,
+      stage: stageValue,
+      next_step: nextStep,
+      target_close_date: targetClose,
+      status: statusValue,
+      close_reason: statusValue === "Open" ? undefined : closeReasonValue,
+    });
   };
 
   const handleDeleteConfirm = () => {
@@ -287,7 +352,9 @@ export default function DealsList({ className }: DealsListProps) {
                   <TableHead>Riesgo</TableHead>
                   <TableHead>Prob.</TableHead>
                   <TableHead>Próximo paso</TableHead>
+                  <TableHead>Fecha objetivo</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Motivo cierre</TableHead>
                   <TableHead className="w-20">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -335,6 +402,15 @@ export default function DealsList({ className }: DealsListProps) {
                         {deal.next_step || "-"}
                       </TableCell>
                       <TableCell>
+                        {deal.target_close_date
+                          ? new Date(deal.target_close_date).toLocaleDateString("es-ES", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
                             deal.status
@@ -342,6 +418,9 @@ export default function DealsList({ className }: DealsListProps) {
                         >
                           {deal.status}
                         </span>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                        {deal.close_reason || (deal.status === "Open" ? "-" : "Sin motivo")}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -449,14 +528,13 @@ export default function DealsList({ className }: DealsListProps) {
 
                 <div>
                   <label className="text-sm font-medium text-card-foreground block mb-2">
-                    Probabilidad (%)
+                    Fecha objetivo de cierre
                   </label>
                   <Input
-                    name="probability"
-                    type="number"
-                    defaultValue={editingDeal.probability || 0}
-                    min="0"
-                    max="100"
+                    name="target_close_date"
+                    type="date"
+                    defaultValue={editingDeal.target_close_date?.slice(0, 10) || ""}
+                    required
                   />
                 </div>
               </div>
@@ -493,7 +571,17 @@ export default function DealsList({ className }: DealsListProps) {
                 <label className="text-sm font-medium text-card-foreground block mb-2">
                   Estado
                 </label>
-                <Select name="status" defaultValue={editingDeal.status}>
+                <Select
+                  name="status"
+                  value={statusDraft}
+                  onValueChange={(value) => {
+                    const status = value as "Open" | "Won" | "Lost";
+                    setStatusDraft(status);
+                    if (status === "Open") {
+                      setCloseReason("");
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -506,6 +594,21 @@ export default function DealsList({ className }: DealsListProps) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {statusDraft !== "Open" && (
+                <div>
+                  <label className="text-sm font-medium text-card-foreground block mb-2">
+                    Motivo del cierre
+                  </label>
+                  <Input
+                    name="close_reason"
+                    value={closeReason}
+                    onChange={(event) => setCloseReason(event.target.value)}
+                    placeholder="Ej: Cliente eligió a la competencia"
+                    required
+                  />
+                </div>
+              )}
 
               <div className="flex justify-end space-x-3 pt-4">
                 <Button

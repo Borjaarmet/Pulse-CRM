@@ -110,53 +110,56 @@ export default function ScoringTooltip({ type, count, children }: ScoringTooltip
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="z-50 max-w-sm p-4 bg-teal-700 border shadow-lg">
+        <TooltipContent
+          side="bottom"
+          className="z-50 max-w-sm rounded-xl border border-white/10 bg-[#0b172b] p-4 text-white shadow-2xl"
+        >
           <div className="space-y-3">
             {/* Header */}
             <div className="flex items-center gap-2">
               <div className={`p-1 rounded-full ${content.color}`}>
                 <Icon className="h-3 w-3 text-white" />
               </div>
-              <h4 className="font-semibold text-sm">{content.title}</h4>
+              <h4 className="text-sm font-semibold text-white">{content.title}</h4>
             </div>
-            
+
             {/* Description */}
-            <p className="text-xs text-muted-foreground">{content.description}</p>
-            
+            <p className="text-xs text-white/70">{content.description}</p>
+
             {/* Count badge if provided */}
             {count !== undefined && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="bg-white/10 text-xs text-white">
                 {count} {type === 'average' ? 'puntos promedio' : 'deals encontrados'}
               </Badge>
             )}
-            
+
             {/* Criteria */}
             <div>
-              <h5 className="font-medium text-xs mb-1">📋 Criterios:</h5>
+              <h5 className="mb-1 text-xs font-medium text-white/80">📋 Criterios:</h5>
               <ul className="space-y-1">
                 {content.criteria.map((criterion, index) => (
-                  <li key={index} className="text-xs text-muted-foreground flex items-start gap-1">
-                    <span className="text-primary">•</span>
+                  <li key={index} className="flex items-start gap-1 text-xs text-white/65">
+                    <span className="text-blue-300">•</span>
                     <span>{criterion}</span>
                   </li>
                 ))}
               </ul>
             </div>
-            
+
             {/* Actionable items */}
             <div>
-              <h5 className="font-medium text-xs mb-1">🎯 Acciones recomendadas:</h5>
+              <h5 className="mb-1 text-xs font-medium text-white/80">🎯 Acciones recomendadas:</h5>
               <ul className="space-y-1">
                 {content.actionable.map((action, index) => (
-                  <li key={index} className="text-xs text-muted-foreground">
+                  <li key={index} className="text-xs text-white/65">
                     {action}
                   </li>
                 ))}
               </ul>
             </div>
-            
+
             <div className="pt-2 border-t">
-              <p className="text-[10px] text-muted-foreground italic">
+              <p className="text-[10px] italic text-white/50">
                 💡 Tip: Haz hover sobre elementos para más información
               </p>
             </div>

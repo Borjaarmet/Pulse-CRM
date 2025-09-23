@@ -440,6 +440,14 @@ export async function addDeal(
 ): Promise<Deal> {
   const now = new Date().toISOString();
 
+  const trimmedNextStep = payload.next_step?.toString().trim() ?? "";
+  if (!trimmedNextStep) {
+    throw new Error("NEXT_STEP_REQUIRED");
+  }
+  if (!payload.target_close_date) {
+    throw new Error("TARGET_CLOSE_REQUIRED");
+  }
+
   const amount =
     payload.amount !== undefined && payload.amount !== null
       ? Number(payload.amount)
@@ -451,6 +459,8 @@ export async function addDeal(
     stage: payload.stage || "Prospección",
     last_activity: payload.last_activity ?? now,
     inactivity_days: payload.inactivity_days ?? 0,
+    next_step: trimmedNextStep,
+    target_close_date: payload.target_close_date,
   };
 
   const { probability, priority, risk_level } = inferDealInsights(draftForInsights);
@@ -458,9 +468,9 @@ export async function addDeal(
   const normalizedPayload = {
     ...payload,
     amount,
-    status: payload.status || "Open",
+    status: "Open",
     priority: payload.priority ?? priority,
-    risk_level: payload.risk_level || (payload as any).risk_level || risk_level,
+    risk_level: payload.risk_level ?? risk_level,
     probability: clamp(payload.probability ?? probability, 0, 100),
     stage: payload.stage || "Prospección",
     updated_at: now,
@@ -468,6 +478,9 @@ export async function addDeal(
     last_activity: draftForInsights.last_activity,
     inactivity_days: draftForInsights.inactivity_days ?? 0,
     score: payload.score ?? 0,
+    next_step: trimmedNextStep,
+    target_close_date: payload.target_close_date,
+    close_reason: null,
   } as Omit<Deal, "id">;
 
   if (IS_SUPABASE_MODE) {
@@ -582,9 +595,37 @@ export async function addContact(
    UPDATE/DELETE FUNCTIONS
    ============== */
 export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal> {
-  const normalizedPatch = {
+  const normalizedPatch: Partial<Deal> = {
     ...patch,
     updated_at: new Date().toISOString(),
+  };
+
+  const enforceCoreFields = (draft: Partial<Deal>) => {
+    const nextStepCandidate = (draft.next_step ?? "").toString().trim();
+    if (!nextStepCandidate) {
+      throw new Error("NEXT_STEP_REQUIRED");
+    }
+    draft.next_step = nextStepCandidate;
+
+    if (!draft.target_close_date) {
+      throw new Error("TARGET_CLOSE_REQUIRED");
+    }
+
+    const statusCandidate = (draft.status ?? "Open") as Deal["status"];
+    if (statusCandidate === "Won" || statusCandidate === "Lost") {
+      const reason = (draft.close_reason ?? "").toString().trim();
+      if (!reason) {
+        throw new Error("CLOSE_REASON_REQUIRED");
+      }
+      draft.close_reason = reason;
+      draft.status = statusCandidate;
+      draft.stage = "Cierre";
+    } else {
+      draft.status = "Open";
+      draft.close_reason = null;
+    }
+
+    return draft;
   };
 
   if (IS_SUPABASE_MODE) {
@@ -596,7 +637,25 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
       .single();
     if (fetchError) throw fetchError;
 
-    const draft: Partial<Deal> = { ...current, ...normalizedPatch };
+    const draft: Partial<Deal> = enforceCoreFields({
+      ...current,
+      ...normalizedPatch,
+      next_step: normalizedPatch.next_step ?? current?.next_step,
+      target_close_date:
+        normalizedPatch.target_close_date ?? current?.target_close_date,
+      close_reason:
+        normalizedPatch.close_reason ?? current?.close_reason ?? undefined,
+      status: normalizedPatch.status ?? current?.status ?? "Open",
+    });
+
+    normalizedPatch.next_step = draft.next_step;
+    normalizedPatch.target_close_date = draft.target_close_date;
+    normalizedPatch.close_reason = draft.close_reason;
+    normalizedPatch.status = draft.status;
+    if (draft.status !== "Open") {
+      normalizedPatch.stage = "Cierre";
+    }
+
     const auto = inferDealInsights(draft);
     if (patch.probability === undefined) normalizedPatch.probability = auto.probability;
     if (patch.priority === undefined) normalizedPatch.priority = auto.priority;
@@ -617,7 +676,7 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
       if (current?.probability !== data.probability) {
         changes.push(`Probabilidad: ${current?.probability ?? 0}% → ${data.probability ?? 0}%`);
       }
-      if (patch.status && current?.status !== data.status) {
+      if (current?.status !== data.status) {
         changes.push(`Estado: ${current?.status ?? ""} → ${data.status}`);
       }
 
@@ -626,7 +685,10 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
         description: `Deal actualizado: ${data.title}`,
         entity_type: "deal",
         entity_id: id,
-        metadata: changes.length ? JSON.stringify({ changes }) : undefined,
+        metadata:
+          changes.length || data.close_reason
+            ? JSON.stringify({ changes, status: data.status, closeReason: data.close_reason ?? undefined })
+            : undefined,
       });
     }
     return data;
@@ -634,17 +696,39 @@ export async function updateDeal(id: string, patch: Partial<Deal>): Promise<Deal
 
   const idx = demoData.deals.findIndex((d) => d.id === id);
   if (idx === -1) throw new Error("Deal not found");
-  const draft = { ...demoData.deals[idx], ...normalizedPatch } as Deal;
+  const previous = demoData.deals[idx];
+  const draft = enforceCoreFields({ ...previous, ...normalizedPatch });
+
   const auto = inferDealInsights(draft);
   if (patch.probability === undefined) draft.probability = auto.probability;
   if (patch.priority === undefined) draft.priority = auto.priority;
   if (patch.risk_level === undefined) draft.risk_level = auto.risk_level;
-  demoData.deals[idx] = draft;
+  demoData.deals[idx] = draft as Deal;
+
+  const changes: string[] = [];
+  if (previous.stage !== draft.stage) {
+    changes.push(`Etapa: ${previous.stage ?? ""} → ${draft.stage ?? ""}`);
+  }
+  if (previous.probability !== draft.probability) {
+    changes.push(`Probabilidad: ${previous.probability ?? 0}% → ${draft.probability ?? 0}%`);
+  }
+  if (previous.status !== draft.status) {
+    changes.push(`Estado: ${previous.status ?? ""} → ${draft.status ?? ""}`);
+  }
+
   logTimelineEntry({
     type: "deal_updated",
     description: `Deal actualizado: ${draft.title}`,
     entity_type: "deal",
     entity_id: id,
+    metadata:
+      changes.length || draft.close_reason
+        ? JSON.stringify({
+            changes,
+            status: draft.status,
+            closeReason: draft.close_reason ?? undefined,
+          })
+        : undefined,
   });
   return demoData.deals[idx];
 }
@@ -871,6 +955,50 @@ export async function getRecentActivity(limit = 10): Promise<TimelineEntry[]> {
     .slice(0, limit);
 }
 
+export async function getDealTimeline(
+  dealId: string,
+  limit = 30,
+): Promise<TimelineEntry[]> {
+  if (!dealId) return [];
+
+  if (IS_SUPABASE_MODE) {
+    await ensureSupabase();
+    const { data, error } = await supabase
+      .from("timeline_entries")
+      .select("*")
+      .eq("entity_type", "deal")
+      .eq("entity_id", dealId)
+      .order("created_at", { descending: true })
+      .limit(limit);
+    if (error) throw error;
+    return data ?? [];
+  }
+
+  return demoData.timeline
+    .filter((entry) => entry.entity_type === "deal" && entry.entity_id === dealId)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit);
+}
+
+export async function logDealAlertResolution({
+  dealId,
+  reason,
+}: {
+  dealId: string;
+  reason?: string;
+}): Promise<void> {
+  const description = reason?.trim().length
+    ? `Alerta resuelta: ${reason.trim()}`
+    : "Alerta resuelta desde el dashboard";
+
+  logTimelineEntry({
+    type: "deal_alert_resolved",
+    description,
+    entity_type: "deal",
+    entity_id: dealId,
+  });
+}
+
 /* =====================
    SEED DE DATOS DEMO
    ===================== */
@@ -931,9 +1059,10 @@ export async function seedDemo(): Promise<void> {
     // Tareas adicionales para probar diferentes escenarios
     {
       id: generateId(),
+      title: "Seguimiento TechCorp",
       description: "Seguimiento con Laura Martínez - TechCorp",
-      state: "Pending" as const,
-      priority: "Medium" as const,
+      state: "To Do",
+      priority: "Media",
       due_at: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 días en el futuro
       completed_at: null,
       notes: "Reunión de seguimiento para propuesta de analytics",
@@ -942,9 +1071,10 @@ export async function seedDemo(): Promise<void> {
     } as Task,
     {
       id: generateId(),
+      title: "Revisar propuesta StartupXYZ",
       description: "Revisar propuesta vencida - StartupXYZ",
-      state: "Overdue" as const,
-      priority: "High" as const,
+      state: "To Do",
+      priority: "Alta",
       due_at: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 días atrás (vencida)
       completed_at: null,
       notes: "URGENTE: Propuesta vencida hace 3 días",
@@ -953,9 +1083,10 @@ export async function seedDemo(): Promise<void> {
     } as Task,
     {
       id: generateId(),
+      title: "Preparar presentación GlobalCorp",
       description: "Preparar presentación ejecutiva - GlobalCorp",
-      state: "InProgress" as const,
-      priority: "High" as const,
+      state: "Doing",
+      priority: "Alta",
       due_at: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día en el futuro
       completed_at: null,
       notes: "Presentación para el comité ejecutivo",
@@ -964,9 +1095,10 @@ export async function seedDemo(): Promise<void> {
     } as Task,
     {
       id: generateId(),
+      title: "Llamada de reactivación LocalBiz",
       description: "Llamada de reactivación - LocalBiz",
-      state: "Pending" as const,
-      priority: "Low" as const,
+      state: "To Do",
+      priority: "Baja",
       due_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días en el futuro
       completed_at: null,
       notes: "Contacto inactivo hace 30 días",

@@ -1,4 +1,4 @@
-import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ComponentType, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   Users2,
@@ -17,6 +17,7 @@ interface DashboardLayoutProps {
   onInjectDemo: () => void;
   onRefresh: () => void;
   initialSection?: string;
+  activeSection?: string;
   onSectionChange?: (section: string) => void;
 }
 
@@ -28,7 +29,7 @@ type NavItem = {
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard },
-  { label: "Deals", icon: Briefcase },
+  { label: "Pipeline", icon: Briefcase },
   { label: "Contactos", icon: Users2 },
   { label: "Empresas", icon: Building2 },
   { label: "Tareas", icon: ClipboardList },
@@ -142,17 +143,25 @@ export default function DashboardLayout({
   onInjectDemo,
   onRefresh,
   initialSection = "Dashboard",
+  activeSection,
   onSectionChange,
 }: DashboardLayoutProps) {
   const navItems = useMemo(() => DEFAULT_NAV_ITEMS, []);
-  const [active, setActive] = useState(initialSection);
+  const [internalActive, setInternalActive] = useState(initialSection);
+  const active = activeSection ?? internalActive;
+
+  useEffect(() => {
+    setInternalActive(initialSection);
+  }, [initialSection]);
 
   const handleSelect = useCallback(
     (item: NavItem) => {
-      setActive(item.label);
+      if (!activeSection) {
+        setInternalActive(item.label);
+      }
       onSectionChange?.(item.label);
     },
-    [onSectionChange],
+    [activeSection, onSectionChange],
   );
 
   return (

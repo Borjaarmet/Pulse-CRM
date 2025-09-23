@@ -13,6 +13,19 @@ import type { Deal, Contact } from "@/lib/types";
 import { useContactsQuery } from "@/hooks/useCrmQueries";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 
+function translateDealError(message: string) {
+  switch (message) {
+    case "NEXT_STEP_REQUIRED":
+      return "Debes definir un próximo paso antes de guardar.";
+    case "TARGET_CLOSE_REQUIRED":
+      return "La fecha objetivo de cierre es obligatoria.";
+    case "CLOSE_REASON_REQUIRED":
+      return "Indica el motivo al cerrar el deal.";
+    default:
+      return message;
+  }
+}
+
 interface DealModalProps {
   open: boolean;
   onClose: () => void;
@@ -82,10 +95,11 @@ export default function DealModal({
         description: deal ? "El deal se ha actualizado exitosamente" : "El deal se ha creado exitosamente",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "No se pudo guardar el deal";
       toast({
         title: "Error",
-        description: deal ? "No se pudo actualizar el deal" : "No se pudo crear el deal",
+        description: translateDealError(message),
         variant: "destructive",
       });
     },
@@ -114,8 +128,14 @@ export default function DealModal({
       newErrors.amount = "El monto debe ser un número válido mayor o igual a 0";
     }
 
-    if (targetClose && isNaN(Date.parse(targetClose))) {
+    if (!targetClose) {
+      newErrors.targetClose = "La fecha objetivo de cierre es obligatoria";
+    } else if (isNaN(Date.parse(targetClose))) {
       newErrors.targetClose = "La fecha objetivo no es válida";
+    }
+
+    if (!nextStep.trim()) {
+      newErrors.nextStep = "El próximo paso es obligatorio";
     }
 
     setErrors(newErrors);
@@ -130,13 +150,14 @@ export default function DealModal({
     }
 
     const amountValue = amount ? Number(amount) : undefined;
+    const nextStepValue = nextStep.trim();
     addDealMutation.mutate({
       title: title.trim(),
       company: company.trim() || undefined,
       amount: amountValue,
       stage,
-      target_close_date: targetClose || undefined,
-      next_step: nextStep.trim() || undefined,
+      target_close_date: targetClose,
+      next_step: nextStepValue,
       contact_id: contactId || undefined,
       status: 'Open',
       score: 0,
@@ -238,6 +259,7 @@ export default function DealModal({
               onChange={(e) => setTargetClose(e.target.value)}
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               data-testid="input-deal-target-close"
+              required
             />
           </div>
 
@@ -252,6 +274,7 @@ export default function DealModal({
               className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
               placeholder="Ej: Preparar propuesta técnica"
               data-testid="input-deal-next-step"
+              required
             />
           </div>
 

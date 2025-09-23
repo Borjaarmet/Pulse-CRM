@@ -58,7 +58,7 @@ export interface Deal {
   stage: string;
   probability: number;
   target_close_date?: string;
-  next_step?: string;
+  next_step?: string | null;
   status: DealStatus;
   score: number;
   priority: Priority;
@@ -67,7 +67,8 @@ export interface Deal {
   inactivity_days: number;
   contact_id?: string;
   owner_id?: string;
-  close_reason?: string;
+  close_reason?: string | null;
+  description?: string | null;
   created_at: string;
   updated_at: string;
   // Relations
@@ -81,7 +82,7 @@ export interface Task {
   state: TaskState;
   priority: TaskPriority;
   due_at?: string;
-  completed_at?: string;
+  completed_at?: string | null;
   assigned_to?: string;
   deal_id?: string;
   contact_id?: string;

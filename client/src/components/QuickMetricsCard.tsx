@@ -41,7 +41,7 @@ export default function QuickMetricsCard({ tasks, deals, isLoading: externalLoad
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl bg-gradient-to-br from-slate-500/30 to-slate-600/30 p-4 text-white shadow-lg transition-all duration-300 hover:scale-[1.03]">
             <div className="flex items-center justify-between">
               <div>

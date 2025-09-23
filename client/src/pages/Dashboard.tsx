@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense, lazy } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense, lazy } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
 import TasksCard from "@/components/TasksCard";
@@ -17,6 +17,22 @@ import DealModal from "@/components/DealModal";
 import ContactModal from "@/components/ContactModal";
 import OverviewCard from "@/components/OverviewCard";
 import AdvancedMetricsPanel from "@/components/AdvancedMetricsPanel";
+import DealsKanban from "@/components/DealsKanban";
+import PipelineSummaryCard from "@/components/PipelineSummaryCard";
+import UpcomingActionsCard from "@/components/UpcomingActionsCard";
+import DealAlertsBanner from "@/components/DealAlertsBanner";
+import { Button } from "@/components/ui/button";
+import ManagerMetricsPanel from "@/components/ManagerMetricsPanel";
+import {
+  computeDealAttention,
+  detectDealAlerts,
+  type DealAlert,
+  type AlertsChannelPayload,
+  generateDailyDigest,
+} from "@/lib/pipelineInsights";
+import { logDealAlertResolution } from "@/lib/db";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 // Lazy load the list components
 const DealsList = lazy(() => import("@/components/DealsList"));
@@ -25,6 +41,7 @@ const CompaniesList = lazy(() => import("@/components/CompaniesList"));
 
 export default function Dashboard() {
   const [isDemo, setIsDemo] = useState(false);
+  const [activeSection, setActiveSection] = useState("Dashboard");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -35,6 +52,30 @@ export default function Dashboard() {
   const tasks = tasksData ?? ([] as Task[]);
   const deals = dealsData ?? ([] as Deal[]);
   const contacts = contactsData ?? ([] as Contact[]);
+
+  const attentionDeals = useMemo(() => computeDealAttention(deals), [deals]);
+  const detectedAlerts = useMemo(() => detectDealAlerts(deals), [deals]);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>([]);
+  const activeAlerts = useMemo(
+    () => detectedAlerts.filter((alert) => !dismissedAlertIds.includes(alert.deal.id)),
+    [detectedAlerts, dismissedAlertIds],
+  );
+  const [alertSensitivity, setAlertSensitivity] = useState<"all" | "critical" | "warning">("all");
+  const filteredAlerts = useMemo(() => {
+    if (alertSensitivity === "all") return activeAlerts;
+    const severity = alertSensitivity === "critical" ? "critical" : "warning";
+    return activeAlerts.filter((alert) => alert.severity === severity);
+  }, [activeAlerts, alertSensitivity]);
+  const hasFilteredOut = alertSensitivity !== "all" && activeAlerts.length > 0 && filteredAlerts.length === 0;
+
+  useEffect(() => {
+    if (!dismissedAlertIds.length) return;
+    const alertIds = new Set(detectedAlerts.map((alert) => alert.deal.id));
+    setDismissedAlertIds((previous) => {
+      const filtered = previous.filter((id) => alertIds.has(id));
+      return filtered.length === previous.length ? previous : filtered;
+    });
+  }, [detectedAlerts, dismissedAlertIds.length]);
 
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -104,48 +145,343 @@ export default function Dashboard() {
     return diffDays <= 14;
   }).length;
 
-  const displayValue = (value: number, isLoading: boolean) =>
-    isLoading ? "—" : value;
+  const topAlerts = useMemo(() => attentionDeals.slice(0, 3), [attentionDeals]);
 
-  const renderDashboardSummary = () => (
-    <>
-      <OverviewCard
-        deals={deals}
-        tasks={tasks}
-        contactsActivos={contactsLoading ? 0 : activeContactsCount}
-        isDealsLoading={dealsLoading}
-        isTasksLoading={tasksLoading}
-      />
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <HotDealCard deals={deals} isLoading={dealsLoading} />
-        <QuickMetricsCard
-          tasks={tasks}
-          deals={deals}
-          isLoading={tasksLoading || dealsLoading}
-        />
-      </section>
+  const [pipelineFocusDealId, setPipelineFocusDealId] = useState<string | null>(null);
+  const [isDigestOpen, setIsDigestOpen] = useState(false);
+  const [digestText, setDigestText] = useState<string>("");
+  const [focusMode, setFocusMode] = useState(false);
+  const [timeframe, setTimeframe] = useState<"today" | "week" | "month">("today");
 
-      <section className="">
-        <StalledDealsCard deals={deals} isLoading={dealsLoading} />
-      </section>
-      <section className="">
-        <RecentActivityCard />
-      </section>
-    </>
+  const handleViewPipeline = useCallback((dealId?: string) => {
+    setActiveSection("Pipeline");
+    setPipelineFocusDealId(dealId ?? null);
+  }, []);
+
+  const handleResolveAlert = useCallback(
+    async (alert: DealAlert) => {
+      try {
+        await logDealAlertResolution({
+          dealId: alert.deal.id,
+          reason: alert.reasons.join(" · ") || alert.message,
+        });
+        setDismissedAlertIds((previous) =>
+          previous.includes(alert.deal.id) ? previous : [...previous, alert.deal.id],
+        );
+        toast({
+          title: "Alerta resuelta",
+          description: `${alert.deal.title} queda registrada en el timeline`,
+        });
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "No se pudo registrar",
+          description: "Reintenta nuevamente",
+          variant: "destructive",
+        });
+      }
+    },
+    [toast],
   );
 
+  const handleShareAlerts = useCallback(
+    (payload: AlertsChannelPayload) => {
+      console.log("[Alerts] Payload listo para enviar:", payload);
+      toast({
+        title: "Payload preparado",
+        description: "Listo para integrarlo con Slack o Teams",
+      });
+    },
+    [toast],
+  );
+
+  const handleGenerateDigest = useCallback(() => {
+    const digest = generateDailyDigest({ deals, tasks, alerts: activeAlerts });
+    setDigestText(digest);
+    setIsDigestOpen(true);
+    console.log("[Digest]\n" + digest);
+    toast({
+      title: "Digest generado",
+      description: "Mostrando resumen IA (listo para compartir)",
+    });
+  }, [activeAlerts, deals, tasks, toast]);
+
+  const handleExitFocus = useCallback(() => setFocusMode(false), []);
+
+  const timeframeLabel = useMemo(() => {
+    switch (timeframe) {
+      case "today":
+        return "Hoy";
+      case "week":
+        return "Esta semana";
+      case "month":
+        return "Este mes";
+      default:
+        return "Hoy";
+    }
+  }, [timeframe]);
+
+
+  const topFocusDeals = useMemo(() => filteredAlerts.slice(0, 3), [filteredAlerts]);
+
+  const urgentTasksCount = useMemo(
+    () =>
+      tasks
+        .filter((task) => task.state !== "Done")
+        .filter((task) => (task.due_at ? new Date(task.due_at).getTime() < Date.now() + 48 * 60 * 60 * 1000 : true))
+        .length,
+    [tasks],
+  );
+
+  const renderDashboardSummary = () => {
+    const headerFilters = (
+      <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {["today", "week", "month"].map((option) => (
+            <Button
+              key={option}
+              type="button"
+              size="sm"
+              variant={timeframe === option ? "secondary" : "outline"}
+              className={timeframe === option ? "bg-blue-500 text-white" : "border-white/20 text-white/70"}
+              onClick={() => setTimeframe(option as typeof timeframe)}
+            >
+              {option === "today" ? "Hoy" : option === "week" ? "Esta semana" : "Este mes"}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={focusMode ? "secondary" : "outline"}
+            className={focusMode ? "bg-emerald-500 text-white" : "border-white/20 text-white/70"}
+            onClick={() => setFocusMode((prev) => !prev)}
+          >
+            {focusMode ? "Salir de modo foco" : "Modo foco IA"}
+          </Button>
+        </div>
+      </div>
+    );
+
+    if (focusMode) {
+      return (
+        <>
+          {headerFilters}
+          <div className="space-y-6">
+            <Card className="bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/60">Modo foco IA</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">
+                    {activeAlerts.length > 0
+                      ? `Trabaja ${activeAlerts.length} deal${activeAlerts.length === 1 ? "" : "s"} críticos`
+                      : "Sin alertas activas. Mantén el ritmo."}
+                  </h2>
+                  <p className="mt-2 text-sm text-white/70">
+                    {urgentTasksCount > 0
+                      ? `Tienes ${urgentTasksCount} tarea${urgentTasksCount === 1 ? "" : "s"} que vencen pronto. Prioriza y registra cada avance.`
+                      : "Agenda despejada. Aprovecha para nutrir contactos o preparar propuestas."}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 md:items-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="bg-emerald-500 text-white hover:bg-emerald-400"
+                    onClick={() => handleViewPipeline(topFocusDeals[0]?.deal.id)}
+                  >
+                    Abrir pipeline en foco
+                  </Button>
+                  <Button type="button" variant="ghost" className="text-white/70 hover:text-white" onClick={handleExitFocus}>
+                    Salir de modo foco
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <DealAlertsBanner
+              alerts={activeAlerts}
+              onResolve={handleResolveAlert}
+              onViewDeal={handleViewPipeline}
+              onShareAlerts={handleShareAlerts}
+            />
+
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)] lg:items-start">
+              <Card className="bg-white/5 p-6">
+                <h3 className="text-lg font-semibold text-white">Plan de ataque sugerido</h3>
+                <p className="mt-1 text-sm text-white/60">
+                  {activeAlerts.length > 0
+                    ? "La IA prioriza estos deals. Registra avances a medida que completes cada paso."
+                    : "Revisa el pipeline para detectar nuevas oportunidades o activar campañas de nurture."}
+                </p>
+
+                {activeAlerts.length > 0 ? (
+                  <ul className="mt-4 space-y-3">
+                    {topFocusDeals.map((alert) => (
+                      <li key={alert.deal.id} className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white">{alert.deal.title}</span>
+                          <span className="text-xs text-white/60">{alert.priority} · Riesgo {alert.risk}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-white/60">{alert.recommendedAction}</p>
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="bg-blue-500 text-white hover:bg-blue-600"
+                            onClick={() => handleViewPipeline(alert.deal.id)}
+                          >
+                            Abrir en pipeline
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-white/30 text-white/80 hover:text-white"
+                            onClick={() => {
+                              void handleResolveAlert(alert);
+                            }}
+                          >
+                            Marcar resuelto
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
+                    No hay urgencias registradas. Sigue cultivando relaciones o revisa tus deals Warm para generar tracción.
+                  </div>
+                )}
+              </Card>
+
+              <aside className="lg:min-w-[320px] lg:self-start">
+                <div className="space-y-6 lg:sticky lg:top-32">
+                  <UpcomingActionsCard
+                    deals={deals}
+                    tasks={tasks}
+                    isDealsLoading={dealsLoading}
+                    isTasksLoading={tasksLoading}
+                    onViewPipeline={handleViewPipeline}
+                  />
+
+                  <Card className="bg-gradient-to-br from-blue-500/10 via-slate-800/60 to-slate-900/70">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white">Digest IA</h3>
+                        <p className="text-xs text-white/70">Resumen listo para compartir ({timeframeLabel.toLowerCase()}).</p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="bg-blue-500 text-white hover:bg-blue-600"
+                        onClick={handleGenerateDigest}
+                      >
+                        Generar
+                      </Button>
+                    </div>
+                    <p className="mt-4 text-xs text-white/70">
+                      {digestText ? digestText.split("\n").slice(0, 3).join(" \u2022 ") : "Genera el digest para obtener el resumen inteligente del pipeline."}
+                    </p>
+                  </Card>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {headerFilters}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:items-start">
+          <div className="space-y-6">
+            <div className="grid gap-4 xl:grid-cols-1">
+              <DealAlertsBanner
+                alerts={activeAlerts}
+                onResolve={handleResolveAlert}
+                onViewDeal={handleViewPipeline}
+                onShareAlerts={handleShareAlerts}
+              />
+        
+            </div>
+
+          
+
+            <OverviewCard
+              deals={deals}
+              tasks={tasks}
+              contactsActivos={contactsLoading ? 0 : activeContactsCount}
+              isDealsLoading={dealsLoading}
+              isTasksLoading={tasksLoading}
+            />
+
+            <section className="grid grid-cols-1">
+              <PipelineSummaryCard deals={deals} isLoading={dealsLoading} />
+            </section>
+            <section className="grid grid-cols-1">
+              <HotDealCard deals={deals} isLoading={dealsLoading} />
+            </section>
+
+            <section>
+              <RecentActivityCard />
+            </section>
+          </div>
+
+          <aside className="lg:min-w-[320px] lg:self-start">
+            <div className="space-y-6 lg:h-fit lg:[position:fixed] lg:top-44">
+              <UpcomingActionsCard
+                deals={deals}
+                tasks={tasks}
+                isDealsLoading={dealsLoading}
+                isTasksLoading={tasksLoading}
+                onViewPipeline={handleViewPipeline}
+              />
+
+              <Card className="bg-gradient-to-br from-blue-500/10 via-slate-800/60 to-slate-900/70">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Digest IA</h3>
+                    <p className="text-xs text-white/70">Resumen listo para compartir ({timeframeLabel.toLowerCase()}).</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="bg-blue-500 text-white hover:bg-blue-600"
+                    onClick={handleGenerateDigest}
+                  >
+                    Generar
+                  </Button>
+                </div>
+                <p className="mt-4 text-xs text-white/70">
+                  {digestText ? digestText.split("\n").slice(0, 3).join(" \u2022 ") : "Genera el digest para obtener el resumen inteligente del pipeline."}
+                </p>
+              </Card>
+            </div>
+          </aside>
+        </div>
+      </>
+    );
+  };
+
   return (
-    <DashboardLayout
+    <>
+      <DashboardLayout
       isDemo={isDemo}
       onInjectDemo={handleInjectDemo}
       onRefresh={handleRefresh}
       initialSection="Dashboard"
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
     >
       {(activeSection) => {
         switch (activeSection) {
           case "Dashboard":
             return renderDashboardSummary();
-          case "Deals":
+          case "Pipeline":
             return (
               <section className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -158,6 +494,7 @@ export default function Dashboard() {
                     + Nuevo Deal
                   </button>
                 </div>
+                <DealsKanban focusDealId={pipelineFocusDealId} onResetFocus={() => setPipelineFocusDealId(null)} />
                 <HotDealCard deals={deals} isLoading={dealsLoading} />
                 <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                   <DealsList />
@@ -213,6 +550,7 @@ export default function Dashboard() {
                   deals={deals}
                   isLoading={tasksLoading || dealsLoading}
                 />
+                <ManagerMetricsPanel deals={deals} isLoading={dealsLoading} />
                 <AdvancedMetricsPanel
                   deals={deals}
                   tasks={tasks}
@@ -232,6 +570,23 @@ export default function Dashboard() {
             );
         }
       }}
-    </DashboardLayout>
+      </DashboardLayout>
+
+      <Dialog open={isDigestOpen} onOpenChange={setIsDigestOpen}>
+        <DialogContent className="max-w-xl bg-[#0b1222] text-white">
+          <DialogHeader>
+            <DialogTitle>Digest IA listo para compartir</DialogTitle>
+            <DialogDescription className="text-white/70">
+              Copia este resumen para enviarlo por email o Slack.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={digestText}
+            readOnly
+            className="min-h-[200px] resize-none bg-black/40 text-sm text-white"
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

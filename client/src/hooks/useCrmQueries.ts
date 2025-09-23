@@ -7,6 +7,7 @@ import {
   getStalledDeals,
   getQuickMetrics,
   getRecentActivity,
+  getDealTimeline,
 } from "@/lib/db";
 import { QUERY_KEYS } from "@/lib/queryKeys";
 import type { Task, Deal, Contact, TimelineEntry } from "@/lib/types";
@@ -79,6 +80,19 @@ export function useRecentActivityQuery(
     queryKey: QUERY_KEYS.timeline,
     queryFn: () => getRecentActivity(8),
     staleTime: 30_000,
+    ...config,
+  });
+}
+
+export function useDealTimelineQuery(
+  dealId: string | undefined,
+  config?: QueryConfig<TimelineEntry[], readonly [string, string | undefined]>,
+  limit = 30,
+) {
+  return useQuery<TimelineEntry[], unknown, TimelineEntry[], readonly [string, string | undefined]>({
+    queryKey: [QUERY_KEYS.dealTimeline[0], dealId] as const,
+    queryFn: () => getDealTimeline(dealId!, limit),
+    enabled: !!dealId,
     ...config,
   });
 }
