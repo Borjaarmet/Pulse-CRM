@@ -55,6 +55,18 @@ README.md               # Este archivo
 
 > Si los env vars no están presentes, el sistema cae automáticamente al modo demo en memoria, por lo que es seguro desarrollar sin Supabase.
 
+## Activar el Digest IA con modelos generativos
+1. Añade a tu `.env` **server side** (o `.env.local`) las variables:
+   ```env
+   OPENAI_API_KEY=sk-...
+   OPENAI_API_MODEL=gpt-4o-mini    # Opcional, por defecto gpt-4o-mini
+   OPENAI_API_MAX_TOKENS=700       # Opcional
+   ```
+   También puedes sobreescribir `OPENAI_API_BASE` si usas un proxy compatible con OpenAI.
+2. Reinicia `npm run dev`. El backend expone `POST /api/ai/digest` y usará la clave para generar resúmenes.
+3. En el dashboard pulsa **“Generar”** en la tarjeta **Digest IA**. Si la clave no está configurada, se mostrará el digest heurístico original como fallback.
+4. Las respuestas y errores de la IA se registran en consola (`[AI] generateDigest...`) para debugging rápido.
+
 ## Scripts principales
 | Comando | Descripción |
 |---------|-------------|

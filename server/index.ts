@@ -1,6 +1,36 @@
+import fs from "fs";
+import path from "path";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+loadEnvFile();
+
+function loadEnvFile() {
+  const envPath = path.resolve(process.cwd(), ".env");
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  try {
+    const content = fs.readFileSync(envPath, "utf-8");
+    content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .forEach((line) => {
+        const [key, ...rest] = line.split("=");
+        if (!key) return;
+        const value = rest.join("=");
+        if (!(key in process.env)) {
+          process.env[key] = value;
+        }
+      });
+    log("Loaded environment variables from .env", "config");
+  } catch (error) {
+    console.error("[config] Failed to load .env", error);
+  }
+}
 
 const app = express();
 app.use(express.json());

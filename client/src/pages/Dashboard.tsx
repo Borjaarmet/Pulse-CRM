@@ -33,11 +33,22 @@ import {
 import { logDealAlertResolution } from "@/lib/db";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 
 // Lazy load the list components
 const DealsList = lazy(() => import("@/components/DealsList"));
 const ContactsList = lazy(() => import("@/components/ContactsList"));
 const CompaniesList = lazy(() => import("@/components/CompaniesList"));
+
+interface DigestMeta {
+  headline: string | null;
+  summary: string[] | null;
+  actions: string[] | null;
+  content: string | null;
+  provider: string;
+  usedFallback: boolean;
+  error?: string;
+}
 
 export default function Dashboard() {
   const [isDemo, setIsDemo] = useState(false);
@@ -150,6 +161,9 @@ export default function Dashboard() {
   const [pipelineFocusDealId, setPipelineFocusDealId] = useState<string | null>(null);
   const [isDigestOpen, setIsDigestOpen] = useState(false);
   const [digestText, setDigestText] = useState<string>("");
+  const [isDigestLoading, setIsDigestLoading] = useState(false);
+  const [digestError, setDigestError] = useState<string | null>(null);
+  const [digestMeta, setDigestMeta] = useState<DigestMeta | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [timeframe, setTimeframe] = useState<"today" | "week" | "month">("today");
 
@@ -195,16 +209,134 @@ export default function Dashboard() {
     [toast],
   );
 
-  const handleGenerateDigest = useCallback(() => {
-    const digest = generateDailyDigest({ deals, tasks, alerts: activeAlerts });
-    setDigestText(digest);
-    setIsDigestOpen(true);
-    console.log("[Digest]\n" + digest);
-    toast({
-      title: "Digest generado",
-      description: "Mostrando resumen IA (listo para compartir)",
-    });
-  }, [activeAlerts, deals, tasks, toast]);
+  const handleGenerateDigest = useCallback(async () => {
+    setDigestError(null);
+    setDigestMeta(null);
+    setIsDigestLoading(true);
+
+    const fallbackDigest = generateDailyDigest({ deals, tasks, alerts: activeAlerts });
+
+    const hotDeals = deals.filter((deal) => deal.status === "Open" && deal.priority === "Hot").length;
+    const riskDeals = deals.filter((deal) => deal.status === "Open" && deal.risk_level === "Alto").length;
+    const overdueTasks = tasks.filter((task) => {
+      if (!task.due_at || task.state === "Done") return false;
+      const due = new Date(task.due_at).getTime();
+      return Number.isFinite(due) && due < Date.now();
+    }).length;
+
+    const topDeals = attentionDeals.slice(0, 5).map(({ deal, priority, risk }) => ({
+      id: deal.id,
+      title: deal.title,
+      company: deal.company ?? null,
+      amount: typeof deal.amount === "number" ? deal.amount : null,
+      stage: deal.stage,
+      priority,
+      risk,
+      nextStep: deal.next_step ?? null,
+      targetCloseDate: deal.target_close_date ?? null,
+    }));
+
+    const alertsSnapshot = activeAlerts.slice(0, 5).map((alert) => ({
+      id: alert.deal.id,
+      message: alert.message,
+      recommendedAction: alert.recommendedAction,
+      severity: alert.severity,
+      priority: alert.priority,
+    }));
+
+    try {
+      const response = await fetch("/api/ai/digest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timeframe,
+          stats: {
+            hotDeals,
+            riskDeals,
+            overdueTasks,
+          },
+          topDeals,
+          alerts: alertsSnapshot,
+          fallbackText: fallbackDigest,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as {
+        success: boolean;
+        digest?: DigestMeta;
+        message?: string;
+      };
+
+      if (!data.success || !data.digest) {
+        throw new Error(data.message || "Respuesta inválida");
+      }
+
+      const digest = data.digest;
+      console.log("[Digest] API response", digest);
+      const sections: string[] = [];
+      if (digest.headline) {
+        sections.push(digest.headline);
+      }
+      if (digest.summary?.length) {
+        sections.push(...digest.summary);
+      }
+      if (digest.actions?.length) {
+        sections.push("Acciones prioritarias:");
+        sections.push(
+          ...digest.actions.map((action, index) => `${index + 1}. ${action}`),
+        );
+      }
+
+      const finalDigest = sections.length > 0 ? sections.join("\n") : digest.content ?? fallbackDigest;
+      console.log("[Digest] Final text", finalDigest);
+
+      setDigestText(finalDigest);
+      setDigestMeta(digest);
+      setIsDigestOpen(true);
+
+      toast({
+        title: digest.usedFallback ? "Digest heurístico" : "Digest IA generado",
+        description: digest.usedFallback
+          ? "Mostramos el resumen estándar al no contar con IA disponible."
+          : `Modelo: ${digest.provider}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo generar el digest";
+      console.error("[Digest]", error);
+      setDigestError(message);
+      setDigestText(fallbackDigest);
+      setDigestMeta({
+        headline: null,
+        summary: null,
+        actions: null,
+        content: fallbackDigest,
+        provider: "fallback-error",
+        usedFallback: true,
+        error: message,
+      });
+      setIsDigestOpen(true);
+      toast({
+        title: "Digest generado con fallback",
+        description: "Mostramos el resumen estándar en lo que conectamos la IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDigestLoading(false);
+    }
+  }, [
+    activeAlerts,
+    attentionDeals,
+    deals,
+    tasks,
+    timeframe,
+    toast,
+  ]);
 
   const handleExitFocus = useCallback(() => setFocusMode(false), []);
 
@@ -220,6 +352,63 @@ export default function Dashboard() {
         return "Hoy";
     }
   }, [timeframe]);
+
+  const digestPreview = useMemo(() => {
+    if (isDigestLoading) {
+      return "Generando digest con IA…";
+    }
+    if (digestError) {
+      return "Mostrando el resumen estándar mientras conectamos la IA.";
+    }
+    if (digestText) {
+      return digestText.split("\n").slice(0, 3).join(" • ");
+    }
+    return "Genera el digest para obtener el resumen inteligente del pipeline.";
+  }, [digestError, digestText, isDigestLoading]);
+
+  const digestProviderLabel = useMemo(() => {
+    if (!digestMeta) return null;
+    if (digestMeta.usedFallback) {
+      return digestMeta.error ? "Heurística local (sin IA)" : "Heurística local";
+    }
+    return `Modelo ${digestMeta.provider}`;
+  }, [digestMeta]);
+
+  const DigestCard = () => (
+    <Card className="bg-gradient-to-br from-blue-500/10 via-slate-800/60 to-slate-900/70">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Digest IA</h3>
+          <p className="text-xs text-white/70">Resumen listo para compartir ({timeframeLabel.toLowerCase()}).</p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="bg-blue-500 text-white hover:bg-blue-600"
+          disabled={isDigestLoading}
+          onClick={handleGenerateDigest}
+          aria-busy={isDigestLoading}
+        >
+          {isDigestLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generando…
+            </span>
+          ) : (
+            "Generar"
+          )}
+        </Button>
+      </div>
+      <p className="mt-4 text-xs text-white/70">{digestPreview}</p>
+      {digestProviderLabel && (
+        <p className="mt-2 text-[11px] text-white/50">Fuente: {digestProviderLabel}</p>
+      )}
+      {digestError && (
+        <p className="mt-1 text-[11px] text-rose-200/80">Error: {digestError}</p>
+      )}
+    </Card>
+  );
 
 
   const topFocusDeals = useMemo(() => filteredAlerts.slice(0, 3), [filteredAlerts]);
@@ -365,26 +554,7 @@ export default function Dashboard() {
                     onViewPipeline={handleViewPipeline}
                   />
 
-                  <Card className="bg-gradient-to-br from-blue-500/10 via-slate-800/60 to-slate-900/70">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-semibold text-white">Digest IA</h3>
-                        <p className="text-xs text-white/70">Resumen listo para compartir ({timeframeLabel.toLowerCase()}).</p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="bg-blue-500 text-white hover:bg-blue-600"
-                        onClick={handleGenerateDigest}
-                      >
-                        Generar
-                      </Button>
-                    </div>
-                    <p className="mt-4 text-xs text-white/70">
-                      {digestText ? digestText.split("\n").slice(0, 3).join(" \u2022 ") : "Genera el digest para obtener el resumen inteligente del pipeline."}
-                    </p>
-                  </Card>
+              <DigestCard />
                 </div>
               </aside>
             </div>
@@ -440,26 +610,7 @@ export default function Dashboard() {
                 onViewPipeline={handleViewPipeline}
               />
 
-              <Card className="bg-gradient-to-br from-blue-500/10 via-slate-800/60 to-slate-900/70">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-white">Digest IA</h3>
-                    <p className="text-xs text-white/70">Resumen listo para compartir ({timeframeLabel.toLowerCase()}).</p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="bg-blue-500 text-white hover:bg-blue-600"
-                    onClick={handleGenerateDigest}
-                  >
-                    Generar
-                  </Button>
-                </div>
-                <p className="mt-4 text-xs text-white/70">
-                  {digestText ? digestText.split("\n").slice(0, 3).join(" \u2022 ") : "Genera el digest para obtener el resumen inteligente del pipeline."}
-                </p>
-              </Card>
+              <DigestCard />
             </div>
           </aside>
         </div>
@@ -585,6 +736,12 @@ export default function Dashboard() {
             readOnly
             className="min-h-[200px] resize-none bg-black/40 text-sm text-white"
           />
+          {digestMeta && (
+            <p className="mt-2 text-xs text-white/60">
+              Fuente: {digestMeta.usedFallback ? "Heurística local" : `Modelo ${digestMeta.provider}`}
+              {digestMeta.error ? ` · ${digestMeta.error}` : ""}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
     </>
