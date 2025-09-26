@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronRight,
   Loader2,
+  Sparkles,
   Search,
 } from "lucide-react";
 
@@ -173,6 +174,14 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
   const [targetFilter, setTargetFilter] = useState<"all" | "overdue" | "thisMonth">("all");
   const [closingStatus, setClosingStatus] = useState<"Won" | "Lost" | null>(null);
   const [closingReason, setClosingReason] = useState("");
+  const [nextStepSuggestion, setNextStepSuggestion] = useState<{
+    text: string;
+    rationale: string[] | null;
+    provider: string;
+    usedFallback: boolean;
+  } | null>(null);
+  const [nextStepError, setNextStepError] = useState<string | null>(null);
+  const [isNextStepLoading, setIsNextStepLoading] = useState(false);
 
   const {
     data: dealTimeline = [],
@@ -263,6 +272,14 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hotDeal });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stalledDeals });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.quickMetrics });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "No se pudo mover el deal";
+      toast({
+        title: "No se pudo mover",
+        description: translateDealError(message),
+        variant: "destructive",
+      });
     },
   });
 
@@ -433,19 +450,148 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
   useEffect(() => {
     setClosingStatus(null);
     setClosingReason("");
+    setNextStepSuggestion(null);
+    setNextStepError(null);
   }, [selectedDeal]);
 
   const handleDragStart = (dealId: string) => {
     setDraggedDealId(dealId);
   };
 
+  const handleSuggestNextStep = async () => {
+    if (!selectedDeal) return;
+
+    setIsNextStepLoading(true);
+    setNextStepError(null);
+
+    const fallback = selectedDeal.next_step?.trim()
+      ? `Refina el siguiente paso existente para ${selectedDeal.title}: ${selectedDeal.next_step}`
+      : `Agenda un avance concreto con ${selectedDeal.company ?? "el cliente"} para progresar la etapa ${selectedDeal.stage}.`;
+
+    try {
+      const response = await fetch("/api/ai/next-step", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deal: {
+            id: selectedDeal.id,
+            title: selectedDeal.title,
+            company: selectedDeal.company ?? null,
+            stage: selectedDeal.stage,
+            probability: selectedDeal.probability ?? null,
+            priority: selectedDeal.priority ?? null,
+            risk: selectedDeal.risk_level ?? null,
+            amount: selectedDeal.amount ?? null,
+            nextStep: selectedDeal.next_step ?? null,
+            lastActivity: selectedDeal.last_activity ?? null,
+            targetCloseDate: selectedDeal.target_close_date ?? null,
+          },
+          context: {
+            reasons: selectedDealAttention?.reasons ?? null,
+            inactivityDays: selectedDealAttention?.inactivity ?? null,
+            owner: selectedDeal.owner_id ?? null,
+          },
+          fallbackText: fallback,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as {
+        success: boolean;
+        suggestion?: {
+          nextStep: string | null;
+          rationale: string[] | null;
+          provider: string;
+          usedFallback: boolean;
+        };
+        message?: string;
+      };
+
+      if (!data.success || !data.suggestion) {
+        throw new Error(data.message || "Respuesta inválida");
+      }
+
+      setNextStepSuggestion({
+        text: data.suggestion.nextStep ?? fallback,
+        rationale: data.suggestion.rationale ?? null,
+        provider: data.suggestion.provider,
+        usedFallback: data.suggestion.usedFallback,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo generar el próximo paso";
+      setNextStepError(message);
+      toast({
+        title: "No se pudo generar",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsNextStepLoading(false);
+    }
+  };
+
+  const applyNextStepMutation = useMutation({
+    mutationFn: async (text: string) => {
+      if (!selectedDeal) throw new Error("No deal selected");
+      await updateDeal(selectedDeal.id, { next_step: text });
+      return text;
+    },
+    onSuccess: async (text) => {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.deals });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.hotDeal });
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.stalledDeals });
+      setNextStepSuggestion((current) =>
+        current ? { ...current, text, usedFallback: current.usedFallback } : current,
+      );
+      toast({
+        title: "Próximo paso actualizado",
+        description: "Aplicamos la sugerencia IA al deal.",
+      });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "No se pudo guardar";
+      toast({
+        title: "No se pudo aplicar",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDrop = (stage: Stage) => {
-    if (!draggedDealId || mutation.isPending || closeDealMutation.isPending) return;
-    const deal = filteredDeals.find((d) => d.id === draggedDealId);
-    if (!deal) return;
+    if (!draggedDealId) return;
+
+    if (mutation.isPending || closeDealMutation.isPending) {
+      toast({
+        title: "Espere…",
+        description: "Estamos guardando cambios anteriores antes de mover otro deal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const deal = deals.find((d) => d.id === draggedDealId);
+    if (!deal) {
+      toast({
+        title: "No se pudo mover",
+        description: "El deal no está disponible con los filtros actuales.",
+        variant: "destructive",
+      });
+      setDraggedDealId(null);
+      return;
+    }
     const normalizedTarget = normalizeStage(stage);
     const currentStage = normalizeStage(deal.stage);
     if (normalizedTarget === currentStage) {
+      toast({
+        title: "Ya está en esa etapa",
+        description: `${deal.title} ya estaba en ${stage}.`,
+      });
       setDraggedDealId(null);
       return;
     }
@@ -477,23 +623,23 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
   return (
     <TooltipProvider>
       <Card className="border border-white/10 bg-gradient-to-b from-slate-950/70 via-slate-950/60 to-slate-950/90 shadow-2xl">
-        <div className="space-y-6">
+        <div className="space-y-3">
             <div className="space-y-1">
               <p className="text-sm text-white/60">
                 Arrastra los deals entre etapas y enfócate con los filtros según riesgo, owner o importe.
               </p>
             </div>
+            <div className="relative flex-1 min-w-[220px] lg:min-w-[240px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+              <Input
+                placeholder="Buscar deal o empresa"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="pl-9 bg-white/5 text-white placeholder:text-white/50 focus-visible:ring-white/30"
+              />
+            </div>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex w-full flex-col gap-2 lg:w-auto lg:flex-row  lg:items-center">
-              <div className="relative flex-1 min-w-[220px] lg:min-w-[240px]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
-                <Input
-                  placeholder="Buscar deal o empresa"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  className="pl-9 bg-white/5 text-white placeholder:text-white/50 focus-visible:ring-white/30"
-                />
-              </div>
               <Select value={ownerFilter} onValueChange={(value) => setOwnerFilter(value)}>
                 <SelectTrigger className="bg-white/5 text-white placeholder:text-white/60 focus:ring-white/30 lg:min-w-[160px]">
                   <SelectValue placeholder="Owner" />
@@ -555,7 +701,7 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
               </Select>
               <label className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-2 text-xs text-white/70">
                 <Switch checked={onlyAttention} onCheckedChange={(checked) => setOnlyAttention(checked)} />
-                Sólo deals en riesgo
+                En riesgo
               </label>
             </div>
           </div>
@@ -923,6 +1069,85 @@ export default function DealsKanban({ focusDealId, onResetFocus }: DealsKanbanPr
                       </li>
                     ))}
                   </ol>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/60">Sugerencia IA</p>
+                    <p className="mt-1 text-white/70">
+                      Solicita a la IA el próximo paso concreto según etapa y señales de riesgo.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="bg-blue-500 text-white hover:bg-blue-600"
+                    onClick={handleSuggestNextStep}
+                    disabled={isNextStepLoading}
+                  >
+                    {isNextStepLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Generando…
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> Próximo paso
+                      </span>
+                    )}
+                  </Button>
+                </div>
+
+                {nextStepSuggestion ? (
+                  <div className="mt-3 space-y-3 rounded-lg bg-black/30 p-3">
+                    <p className="text-sm font-semibold text-white">{nextStepSuggestion.text}</p>
+                    {nextStepSuggestion.rationale?.length ? (
+                      <ul className="space-y-1 text-[13px] text-white/70">
+                        {nextStepSuggestion.rationale.map((item, index) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-300" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <p className="text-[11px] text-white/40">
+                      Fuente: {nextStepSuggestion.usedFallback ? "Heurística local" : `Modelo ${nextStepSuggestion.provider}`}
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setNextStepSuggestion(null)}
+                      >
+                        Descartar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="bg-emerald-500 text-white hover:bg-emerald-600"
+                        onClick={() => nextStepSuggestion && applyNextStepMutation.mutate(nextStepSuggestion.text)}
+                        disabled={applyNextStepMutation.isPending}
+                      >
+                        {applyNextStepMutation.isPending ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Guardando…
+                          </span>
+                        ) : (
+                          "Aplicar al deal"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-white/60">
+                    La respuesta incluirá un paso accionable y la justificación para que puedas registrarlo directamente.
+                  </p>
+                )}
+
+                {nextStepError && (
+                  <p className="mt-2 text-xs text-rose-300">{nextStepError}</p>
                 )}
               </div>
 

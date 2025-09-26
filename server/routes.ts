@@ -1,8 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateDigest } from "./ai/gateway";
-import type { DigestRequestPayload } from "./ai/types";
+import { generateDigest, generateNextStep, generateContactSummary } from "./ai/gateway";
+import type {
+  DigestRequestPayload,
+  NextStepRequestPayload,
+  ContactSummaryRequestPayload,
+} from "./ai/types";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // put application routes here
@@ -49,6 +53,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[AI] digest endpoint", error);
       res.status(500).json({ success: false, message: "No se pudo generar el digest" });
+    }
+  });
+
+  app.post("/api/ai/next-step", async (req, res) => {
+    const payload = req.body as Partial<NextStepRequestPayload> | undefined;
+    if (!payload?.deal || !payload.fallbackText) {
+      return res.status(400).json({ success: false, message: "Payload inválido" });
+    }
+
+    try {
+      const response = await generateNextStep(payload as NextStepRequestPayload);
+      res.json({ success: true, suggestion: response });
+    } catch (error) {
+      console.error("[AI] next-step endpoint", error);
+      res.status(500).json({ success: false, message: "No se pudo generar el próximo paso" });
+    }
+  });
+
+  app.post("/api/ai/contact-summary", async (req, res) => {
+    const payload = req.body as Partial<ContactSummaryRequestPayload> | undefined;
+    if (!payload?.contact || !payload.fallbackText) {
+      return res.status(400).json({ success: false, message: "Payload inválido" });
+    }
+
+    try {
+      const response = await generateContactSummary(payload as ContactSummaryRequestPayload);
+      res.json({ success: true, summary: response });
+    } catch (error) {
+      console.error("[AI] contact-summary endpoint", error);
+      res.status(500).json({ success: false, message: "No se pudo generar el resumen del contacto" });
     }
   });
 

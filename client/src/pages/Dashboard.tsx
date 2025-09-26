@@ -424,7 +424,7 @@ export default function Dashboard() {
 
   const renderDashboardSummary = () => {
     const headerFilters = (
-      <div className="flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-between">
+      <div className="grid gap-3 pb-4 md:flex md:items-center md:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {["today", "week", "month"].map((option) => (
             <Button
@@ -453,6 +453,38 @@ export default function Dashboard() {
       </div>
     );
 
+    const dealAlertsRow = (
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
+        <PipelineSummaryCard deals={deals} isLoading={dealsLoading} />
+        <DealAlertsBanner
+          alerts={activeAlerts}
+          onResolve={handleResolveAlert}
+          onViewDeal={handleViewPipeline}
+          onShareAlerts={handleShareAlerts}
+        />
+      </div>
+    );
+
+    const upcomingRow = (
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)] lg:items-start">
+        <UpcomingActionsCard
+          deals={deals}
+          tasks={tasks}
+          isDealsLoading={dealsLoading}
+          isTasksLoading={tasksLoading}
+          onViewPipeline={handleViewPipeline}
+        />
+        <DigestCard />
+      </div>
+    );
+
+    const hotVsActivityRow = (
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        <HotDealCard deals={deals} isLoading={dealsLoading} />
+        <RecentActivityCard />
+      </div>
+    );
+
     if (focusMode) {
       return (
         <>
@@ -469,7 +501,7 @@ export default function Dashboard() {
                   </h2>
                   <p className="mt-2 text-sm text-white/70">
                     {urgentTasksCount > 0
-                      ? `Tienes ${urgentTasksCount} tarea${urgentTasksCount === 1 ? "" : "s"} que vencen pronto. Prioriza y registra cada avance.`
+                      ? `Tienes ${urgentTasksCount} tarea${urgentTasksCount === 1 ? "" : "s"} por vencer en 48h.`
                       : "Agenda despejada. Aprovecha para nutrir contactos o preparar propuestas."}
                   </p>
                 </div>
@@ -489,75 +521,57 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            <DealAlertsBanner
-              alerts={activeAlerts}
-              onResolve={handleResolveAlert}
-              onViewDeal={handleViewPipeline}
-              onShareAlerts={handleShareAlerts}
-            />
+            {dealAlertsRow}
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)] lg:items-start">
-              <Card className="bg-white/5 p-6">
-                <h3 className="text-lg font-semibold text-white">Plan de ataque sugerido</h3>
-                <p className="mt-1 text-sm text-white/60">
-                  {activeAlerts.length > 0
-                    ? "La IA prioriza estos deals. Registra avances a medida que completes cada paso."
-                    : "Revisa el pipeline para detectar nuevas oportunidades o activar campañas de nurture."}
-                </p>
+            <Card className="bg-white/5 p-6">
+              <h3 className="text-lg font-semibold text-white">Plan de ataque sugerido</h3>
+              <p className="mt-1 text-sm text-white/60">
+                {activeAlerts.length > 0
+                  ? "La IA prioriza estos deals. Registra avances a medida que completes cada paso."
+                  : "Revisa el pipeline para detectar nuevas oportunidades o activar campañas de nurture."}
+              </p>
 
-                {activeAlerts.length > 0 ? (
-                  <ul className="mt-4 space-y-3">
-                    {topFocusDeals.map((alert) => (
-                      <li key={alert.deal.id} className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">{alert.deal.title}</span>
-                          <span className="text-xs text-white/60">{alert.priority} · Riesgo {alert.risk}</span>
-                        </div>
-                        <p className="mt-2 text-xs text-white/60">{alert.recommendedAction}</p>
-                        <div className="mt-3 flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="bg-blue-500 text-white hover:bg-blue-600"
-                            onClick={() => handleViewPipeline(alert.deal.id)}
-                          >
-                            Abrir en pipeline
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-white/30 text-white/80 hover:text-white"
-                            onClick={() => {
-                              void handleResolveAlert(alert);
-                            }}
-                          >
-                            Marcar resuelto
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
-                    No hay urgencias registradas. Sigue cultivando relaciones o revisa tus deals Warm para generar tracción.
-                  </div>
-                )}
-              </Card>
-
-              <aside className="lg:min-w-[320px] lg:self-start">
-                <div className="space-y-6 lg:sticky lg:top-32">
-                  <UpcomingActionsCard
-                    deals={deals}
-                    tasks={tasks}
-                    isDealsLoading={dealsLoading}
-                    isTasksLoading={tasksLoading}
-                    onViewPipeline={handleViewPipeline}
-                  />
-
-              <DigestCard />
+              {activeAlerts.length > 0 ? (
+                <ul className="mt-4 space-y-3">
+                  {topFocusDeals.map((alert) => (
+                    <li key={alert.deal.id} className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-white">{alert.deal.title}</span>
+                        <span className="text-xs text-white/60">{alert.priority} · Riesgo {alert.risk}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-white/60">{alert.recommendedAction}</p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="bg-blue-500 text-white hover:bg-blue-600"
+                          onClick={() => handleViewPipeline(alert.deal.id)}
+                        >
+                          Abrir en pipeline
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-white/30 text-white/80 hover:text-white"
+                          onClick={() => {
+                            void handleResolveAlert(alert);
+                          }}
+                        >
+                          Marcar resuelto
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-5 text-sm text-white/70">
+                  No hay urgencias registradas. Sigue cultivando relaciones o revisa tus deals Warm para generar tracción.
                 </div>
-              </aside>
-            </div>
+              )}
+            </Card>
+
+            {upcomingRow}
+            {hotVsActivityRow}
           </div>
         </>
       );
@@ -566,53 +580,19 @@ export default function Dashboard() {
     return (
       <>
         {headerFilters}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] lg:items-start">
-          <div className="space-y-6">
-            <div className="grid gap-4 xl:grid-cols-1">
-              <DealAlertsBanner
-                alerts={activeAlerts}
-                onResolve={handleResolveAlert}
-                onViewDeal={handleViewPipeline}
-                onShareAlerts={handleShareAlerts}
-              />
-        
-            </div>
+        <div className="space-y-6">
+          {dealAlertsRow}
 
-          
+          <OverviewCard
+            deals={deals}
+            tasks={tasks}
+            contactsActivos={contactsLoading ? 0 : activeContactsCount}
+            isDealsLoading={dealsLoading}
+            isTasksLoading={tasksLoading}
+          />
 
-            <OverviewCard
-              deals={deals}
-              tasks={tasks}
-              contactsActivos={contactsLoading ? 0 : activeContactsCount}
-              isDealsLoading={dealsLoading}
-              isTasksLoading={tasksLoading}
-            />
-
-            <section className="grid grid-cols-1">
-              <PipelineSummaryCard deals={deals} isLoading={dealsLoading} />
-            </section>
-            <section className="grid grid-cols-1">
-              <HotDealCard deals={deals} isLoading={dealsLoading} />
-            </section>
-
-            <section>
-              <RecentActivityCard />
-            </section>
-          </div>
-
-          <aside className="lg:min-w-[320px] lg:self-start">
-            <div className="space-y-6 lg:h-fit lg:[position:fixed] lg:top-44">
-              <UpcomingActionsCard
-                deals={deals}
-                tasks={tasks}
-                isDealsLoading={dealsLoading}
-                isTasksLoading={tasksLoading}
-                onViewPipeline={handleViewPipeline}
-              />
-
-              <DigestCard />
-            </div>
-          </aside>
+          {upcomingRow}
+          {hotVsActivityRow}
         </div>
       </>
     );

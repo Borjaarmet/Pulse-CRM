@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateContact, deleteContact } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
@@ -21,10 +21,11 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
-import { Edit, Trash2, Search, Filter, Plus } from "lucide-react";
+import { Edit, Trash2, Search, Filter, Plus, Sparkles, Loader2 } from "lucide-react";
 import { calculateContactScore } from "@/lib/scoring";
 import type { Contact, Deal } from "@/lib/types";
 import { useContactsQuery, useDealsQuery } from "@/hooks/useCrmQueries";
@@ -46,6 +47,16 @@ export default function ContactsList({ className }: ContactsListProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [insightContact, setInsightContact] = useState<Contact | null>(null);
+  const [isInsightOpen, setIsInsightOpen] = useState(false);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [insightError, setInsightError] = useState<string | null>(null);
+  const [contactSummary, setContactSummary] = useState<{
+    headline: string | null;
+    highlights: string[] | null;
+    provider: string;
+    usedFallback: boolean;
+  } | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -147,6 +158,100 @@ export default function ContactsList({ className }: ContactsListProps) {
     }
   };
 
+  const handleCopySummary = useCallback(() => {
+    if (!contactSummary) return;
+    const pieces: string[] = [];
+    if (contactSummary.headline) pieces.push(contactSummary.headline);
+    if (contactSummary.highlights?.length) {
+      pieces.push(...contactSummary.highlights.map((item, index) => `${index + 1}. ${item}`));
+    }
+    const text = pieces.join("\n");
+    if (!text) return;
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        toast({ title: "Resumen copiado", description: "Pegalo en tu CRM, email o Slack." });
+      })
+      .catch(() => {
+        toast({
+          title: "No se pudo copiar",
+          description: "Copia manualmente el texto mostrado.",
+          variant: "destructive",
+        });
+      });
+  }, [contactSummary, toast]);
+
+  const handleContactInsight = async (contact: Contact) => {
+    setInsightContact(contact);
+    setContactSummary(null);
+    setInsightError(null);
+    setIsInsightOpen(true);
+    setInsightLoading(true);
+
+    const relatedDeals = deals.filter((deal) => deal.contact_id === contact.id);
+    const fallback = `Revisa historial y últimas interacciones con ${contact.name} para preparar el siguiente touchpoint.`;
+
+    try {
+      const response = await fetch("/api/ai/contact-summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contact: {
+            id: contact.id,
+            name: contact.name,
+            company: contact.company ?? null,
+            role: contact.position ?? null,
+            lastActivity: contact.last_activity ?? null,
+            owner: contact.owner_id ?? null,
+            deals: relatedDeals.map((deal) => ({
+              id: deal.id,
+              title: deal.title,
+              stage: deal.stage,
+              status: deal.status,
+              amount: deal.amount ?? null,
+              priority: deal.priority ?? null,
+              lastActivity: deal.last_activity ?? null,
+            })),
+          },
+          fallbackText: fallback,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = (await response.json()) as {
+        success: boolean;
+        summary?: {
+          headline: string | null;
+          highlights: string[] | null;
+          provider: string;
+          usedFallback: boolean;
+        };
+        message?: string;
+      };
+
+      if (!data.success || !data.summary) {
+        throw new Error(data.message || "Respuesta inválida");
+      }
+
+      setContactSummary(data.summary);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo generar el resumen";
+      setInsightError(message);
+      toast({
+        title: "No se pudo generar",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setInsightLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className={className}>
@@ -223,7 +328,8 @@ export default function ContactsList({ className }: ContactsListProps) {
                   <TableHead>Score</TableHead>
                   <TableHead>Prioridad</TableHead>
                   <TableHead>Última Actividad</TableHead>
-                  <TableHead className="w-20">Acciones</TableHead>
+                  <TableHead className="text-right">IA</TableHead>
+                  <TableHead className="w-24 text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -275,20 +381,27 @@ export default function ContactsList({ className }: ContactsListProps) {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatLastActivity(contact.last_activity)}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(contact)}
-                          >
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-white"
+                          onClick={() => handleContactInsight(contact)}
+                          disabled={insightLoading && insightContact?.id === contact.id}
+                        >
+                          {insightLoading && insightContact?.id === contact.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleEdit(contact)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(contact)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(contact)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -434,6 +547,67 @@ export default function ContactsList({ className }: ContactsListProps) {
         open={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
       />
+
+      <Dialog
+        open={isInsightOpen}
+        onOpenChange={(open) => {
+          setIsInsightOpen(open);
+          if (!open) {
+            setInsightContact(null);
+            setContactSummary(null);
+            setInsightError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-[#0b1222] text-white">
+          <DialogHeader>
+            <DialogTitle>Resumen IA de contacto</DialogTitle>
+            <DialogDescription className="text-white/60">
+              Insights rápidos para preparar la próxima interacción.
+            </DialogDescription>
+          </DialogHeader>
+          {insightLoading ? (
+            <div className="flex items-center gap-2 text-sm text-white/70">
+              <Loader2 className="h-4 w-4 animate-spin" /> Generando resumen…
+            </div>
+          ) : contactSummary ? (
+            <div className="space-y-3">
+              {contactSummary.headline && (
+                <p className="text-sm font-semibold text-white">{contactSummary.headline}</p>
+              )}
+              {contactSummary.highlights?.length ? (
+                <ul className="space-y-1 text-sm text-white/70">
+                  {contactSummary.highlights.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-300" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="text-[11px] text-white/40">
+                Fuente: {contactSummary.usedFallback ? "Heurística local" : `Modelo ${contactSummary.provider}`}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setContactSummary(null)}>
+                  Limpiar
+                </Button>
+                <Button variant="secondary" size="sm" className="bg-blue-500 text-white hover:bg-blue-600" onClick={handleCopySummary}>
+                  Copiar resumen
+                </Button>
+              </div>
+            </div>
+          ) : insightError ? (
+            <p className="text-sm text-rose-300">{insightError}</p>
+          ) : insightContact ? (
+            <p className="text-sm text-white/70">
+              Analizando la información disponible de {insightContact.name}.
+            </p>
+          ) : (
+            <p className="text-sm text-white/70">Selecciona un contacto para obtener el resumen IA.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

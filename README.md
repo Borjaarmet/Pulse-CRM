@@ -61,11 +61,42 @@ README.md               # Este archivo
    OPENAI_API_KEY=sk-...
    OPENAI_API_MODEL=gpt-4o-mini    # Opcional, por defecto gpt-4o-mini
    OPENAI_API_MAX_TOKENS=700       # Opcional
+   AI_DIGEST_CACHE_TTL_MS=300000   # Opcional, TTL en ms (5 min por defecto)
    ```
    También puedes sobreescribir `OPENAI_API_BASE` si usas un proxy compatible con OpenAI.
 2. Reinicia `npm run dev`. El backend expone `POST /api/ai/digest` y usará la clave para generar resúmenes.
 3. En el dashboard pulsa **“Generar”** en la tarjeta **Digest IA**. Si la clave no está configurada, se mostrará el digest heurístico original como fallback.
 4. Las respuestas y errores de la IA se registran en consola (`[AI] generateDigest...`) para debugging rápido.
+
+### Logs y observabilidad
+- Para persistir llamadas IA, define `SUPABASE_SERVICE_ROLE_KEY` (service role key de tu proyecto).
+- Crea la tabla `ai_logs` en Supabase (usa SQL editor):
+  ```sql
+  create table if not exists ai_logs (
+    id uuid primary key default gen_random_uuid(),
+    created_at timestamptz default now(),
+    job text not null,
+    status text not null,
+    provider text,
+    elapsed_ms integer,
+    prompt_tokens integer,
+    completion_tokens integer,
+    total_tokens integer,
+    used_fallback boolean,
+    payload_hash text,
+    metadata jsonb,
+    error_message text
+  );
+
+  alter table ai_logs enable row level security;
+  -- opcional: políticas extra si deseas consultar con anon key
+  ```
+- Con la service key presente, cada invocación IA se inserta en `ai_logs` (incluye tokens, latencia, fallbacks y cache-hits).
+
+### Endpoints IA disponibles
+- `POST /api/ai/digest`: genera el resumen ejecutivo (usa caché en memoria con TTL configurable).
+- `POST /api/ai/next-step`: propone el próximo paso de un deal. El Kanban muestra un botón “Próximo paso” dentro del panel lateral.
+- `POST /api/ai/contact-summary`: resume la situación de un contacto; disponible desde la tabla de contactos mediante el botón “IA” (incluye opción para copiar el resumen).
 
 ## Scripts principales
 | Comando | Descripción |
